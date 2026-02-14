@@ -23,7 +23,15 @@
       "Bash(name: default)",
       "Bash(ipAddressPools:)",
       "Bash(EOF)",
-      "Bash(minikube addons enable:*)"
+      "Bash(minikube addons enable:*)",
+      "Bash(minikube image ls:*)",
+      "Bash(kubectl delete:*)",
+      "Bash(kubectl wait:*)",
+      "Bash(kubectl logs:*)",
+      "Bash(kubectl exec:*)",
+      "Bash(make deploy-db:*)",
+      "Bash(make run-migrations:*)",
+      "Bash(kubectl cp:*)"
     ]
   }
 }

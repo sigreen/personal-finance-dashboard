@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: default
+data:
+  # Note: These scripts run in alphabetical order
+  # They only run on initial database creation
+  init.sh: |
+    #!/bin/bash
+    echo "Database initialization scripts will be applied via migrations"
+    echo "This is a placeholder for future initialization needs"

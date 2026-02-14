@@ -1,0 +1,21 @@
+FROM docker.io/library/postgres:15-alpine
+
+# Install postgresql-client tools
+RUN apk add --no-cache postgresql-client bash
+
+# Create directory for migrations
+RUN mkdir -p /migrations /seeds
+
+# Copy migration and seed files
+COPY migrations/*.sql /migrations/
+COPY seeds/*.sql /seeds/
+
+# Copy migration script
+COPY run-migrations.sh /usr/local/bin/run-migrations.sh
+RUN chmod +x /usr/local/bin/run-migrations.sh
+
+# Set working directory
+WORKDIR /migrations
+
+# Default command
+CMD ["/usr/local/bin/run-migrations.sh"]

@@ -18,6 +18,8 @@ help:
 	@echo "  make load-images       - Load all images into minikube"
 	@echo "  make deploy-all        - Deploy all services to Kubernetes"
 	@echo "  make deploy-db         - Deploy PostgreSQL"
+	@echo "  make run-migrations    - Run database migrations"
+	@echo "  make build-migration   - Build migration container image"
 	@echo "  make deploy-etl        - Deploy ETL service"
 	@echo "  make deploy-mcp        - Deploy MCP server"
 	@echo "  make deploy-frontend   - Deploy frontend"
@@ -146,11 +148,19 @@ deploy-all: deploy-db deploy-etl deploy-mcp deploy-frontend
 
 deploy-db:
 	@echo "Deploying PostgreSQL..."
-	@if [ -d k8s/base/postgres ]; then \
-		kubectl apply -f k8s/base/postgres/; \
-	else \
-		echo "PostgreSQL manifests not found. Skipping."; \
-	fi
+	@./scripts/deploy-database.sh
+
+run-migrations:
+	@echo "Running database migrations..."
+	@./scripts/run-migrations.sh
+
+build-migration:
+	@echo "Building migration container..."
+	@podman build -t localhost/finance-db-migration:latest -f database/Containerfile database/
+	@echo "Loading image into minikube..."
+	@podman save localhost/finance-db-migration:latest -o /tmp/finance-db-migration.tar
+	@minikube image load /tmp/finance-db-migration.tar
+	@rm /tmp/finance-db-migration.tar
 
 deploy-etl:
 	@echo "Deploying ETL service..."

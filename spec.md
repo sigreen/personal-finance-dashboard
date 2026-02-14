@@ -17,7 +17,6 @@ A personal finance management system that imports financial data from CSV files 
 ```
 CSV Files → Web UI → ETL Service → PostgreSQL → MCP Server → Claude/AI Models
 ```
-
 ---
 
 ## Step-by-Step Implementation Plan
