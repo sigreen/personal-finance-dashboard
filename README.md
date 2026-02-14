@@ -76,18 +76,36 @@ minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o
 kubectl cluster-info
 ```
 
-### 3. Enable and Configure MetalLB
+### 3. Install and Configure MetalLB
+
+MetalLB is installed automatically by the setup script using manual installation (the minikube addon doesn't work with rootless Podman).
+
+If you need to install it manually:
 
 ```bash
-# Enable MetalLB addon
-minikube addons enable metallb
+# Install MetalLB
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
 
-# Get minikube IP to determine IP range
-minikube ip
+# Wait for MetalLB to be ready
+kubectl wait --namespace metallb-system --for=condition=ready pod --selector=app=metallb --timeout=90s
 
-# Configure MetalLB (interactive)
-minikube addons configure metallb
-# Enter IP range when prompted (e.g., 192.168.49.100-192.168.49.110)
+# Configure IP pool (replace with your minikube IP prefix)
+cat <<EOF | kubectl apply -f -
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 192.168.49.100-192.168.49.110
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default
+  namespace: metallb-system
+EOF
 ```
 
 ### 4. Enable Other Required Addons

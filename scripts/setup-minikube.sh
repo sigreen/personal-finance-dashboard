@@ -18,6 +18,10 @@ echo "✓ Minikube installed: $(minikube version --short)"
 echo "✓ kubectl installed"
 echo ""
 
+# Configure rootless Podman
+echo "Configuring minikube for rootless Podman..."
+minikube config set rootless true
+
 # Start minikube
 echo "Starting minikube cluster with Podman driver and CRI-O runtime..."
 minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o
@@ -26,68 +30,58 @@ echo ""
 echo "✓ Minikube cluster started"
 echo ""
 
-# Enable MetalLB
-echo "Enabling MetalLB addon..."
-minikube addons enable metallb
-
-echo ""
-echo "✓ MetalLB enabled"
-echo ""
-
 # Enable storage provisioner
 echo "Enabling storage provisioner..."
-minikube addons enable storage-provisioner
+minikube addons enable storage-provisioner || true
 
 echo ""
 echo "✓ Storage provisioner enabled"
 echo ""
 
-# Enable metrics server
-echo "Enabling metrics server..."
-minikube addons enable metrics-server
+# Install MetalLB manually (addon doesn't work with rootless Podman)
+echo "Installing MetalLB (manual installation)..."
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
 
 echo ""
-echo "✓ Metrics server enabled"
+echo "Waiting for MetalLB to be ready..."
+kubectl wait --namespace metallb-system --for=condition=ready pod --selector=app=metallb --timeout=90s
+
+echo ""
+echo "✓ MetalLB installed"
 echo ""
 
-# Get minikube IP
+# Get minikube IP and configure MetalLB
 MINIKUBE_IP=$(minikube ip)
-echo "Minikube IP: $MINIKUBE_IP"
-echo ""
-
-# Calculate IP range for MetalLB
 IP_PREFIX=$(echo $MINIKUBE_IP | cut -d'.' -f1-3)
 IP_START="${IP_PREFIX}.100"
 IP_END="${IP_PREFIX}.110"
 
-echo "======================================"
-echo "MetalLB Configuration Required"
-echo "======================================"
+echo "Configuring MetalLB IP pool..."
+
+cat <<EOF | kubectl apply -f -
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - ${IP_START}-${IP_END}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - default-pool
+EOF
+
 echo ""
-echo "Please configure MetalLB with the following command:"
+echo "✓ MetalLB configured with IP range: ${IP_START}-${IP_END}"
 echo ""
-echo "  minikube addons configure metallb"
-echo ""
-echo "When prompted, enter:"
-echo "  Start IP: $IP_START"
-echo "  End IP:   $IP_END"
-echo ""
-echo "Or run this command to configure automatically:"
-echo ""
-echo "  kubectl create configmap config -n metallb-system --from-literal=config='"
-echo "  apiVersion: v1"
-echo "  kind: ConfigMap"
-echo "  metadata:"
-echo "    namespace: metallb-system"
-echo "    name: config"
-echo "  data:"
-echo "    config: |"
-echo "      address-pools:"
-echo "      - name: default"
-echo "        protocol: layer2"
-echo "        addresses:"
-echo "        - $IP_START-$IP_END'"
-echo ""
+
 echo "======================================"
 echo "Setup Complete!"
 echo "======================================"
@@ -95,10 +89,15 @@ echo ""
 echo "Cluster Information:"
 kubectl cluster-info
 echo ""
+echo "Minikube IP: $MINIKUBE_IP"
+echo "MetalLB IP pool: ${IP_START}-${IP_END}"
+echo ""
 echo "Enabled Addons:"
 minikube addons list | grep enabled
 echo ""
+echo "MetalLB Status:"
+kubectl get pods -n metallb-system
+echo ""
 echo "Next Steps:"
-echo "1. Configure MetalLB (see above)"
-echo "2. Proceed to Phase 2: Database Design & Deployment"
+echo "1. Proceed to Phase 2: Database Design & Deployment"
 echo ""

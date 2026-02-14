@@ -34,19 +34,16 @@ This will:
 - Enable storage provisioner
 - Enable metrics server
 
-### Step 2: Configure MetalLB
+### Step 2: Verify MetalLB Installation
 
-Run the configuration script:
-
-```bash
-./scripts/configure-metallb.sh
-```
-
-Or configure manually:
+MetalLB is automatically installed and configured by the setup script. Verify it's running:
 
 ```bash
-minikube addons configure metallb
-# Enter IP range when prompted (e.g., 192.168.49.100-192.168.49.110)
+# Check MetalLB pods
+kubectl get pods -n metallb-system
+
+# Check IP pool configuration
+kubectl get ipaddresspool -n metallb-system
 ```
 
 ### Step 3: Verify Setup
@@ -97,10 +94,33 @@ minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o
 # Check MetalLB status
 kubectl get pods -n metallb-system
 
-# Restart MetalLB
-minikube addons disable metallb
-minikube addons enable metallb
-./scripts/configure-metallb.sh
+# Reinstall MetalLB
+kubectl delete namespace metallb-system
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
+kubectl wait --namespace metallb-system --for=condition=ready pod --selector=app=metallb --timeout=90s
+
+# Reconfigure IP pool
+MINIKUBE_IP=$(minikube ip)
+IP_PREFIX=$(echo $MINIKUBE_IP | cut -d'.' -f1-3)
+cat <<EOF | kubectl apply -f -
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - ${IP_PREFIX}.100-${IP_PREFIX}.110
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - default-pool
+EOF
 ```
 
 ### Issue: Out of disk space

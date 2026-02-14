@@ -10,7 +10,19 @@
       "Bash(kubectl get:*)",
       "Bash(kubectl describe:*)",
       "Bash(ls:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(kubectl apply:*)",
+      "Bash(apiVersion: metallb.io/v1beta1)",
+      "Bash(kind: IPAddressPool)",
+      "Bash(metadata:)",
+      "Bash(name: default-pool)",
+      "Bash(namespace: metallb-system)",
+      "Bash(spec:)",
+      "Bash(addresses:)",
+      "Bash(kind: L2Advertisement)",
+      "Bash(name: default)",
+      "Bash(ipAddressPools:)",
+      "Bash(EOF)"
     ]
   }
 }

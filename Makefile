@@ -39,23 +39,46 @@ help:
 
 # Setup minikube cluster
 setup-minikube:
+	@echo "Configuring minikube for rootless Podman..."
+	@minikube config set rootless true
 	@echo "Starting minikube cluster..."
 	minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o
 	@echo ""
-	@echo "Enabling MetalLB addon..."
-	minikube addons enable metallb
-	@echo ""
 	@echo "Enabling storage provisioner..."
-	minikube addons enable storage-provisioner
+	minikube addons enable storage-provisioner || true
 	@echo ""
-	@echo "Enabling metrics server..."
-	minikube addons enable metrics-server
+	@echo "Installing MetalLB (manual installation)..."
+	@kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
+	@echo "Waiting for MetalLB to be ready..."
+	@kubectl wait --namespace metallb-system --for=condition=ready pod --selector=app=metallb --timeout=90s
+	@echo ""
+	@echo "Configuring MetalLB IP pool..."
+	@MINIKUBE_IP=$$(minikube ip); \
+	IP_PREFIX=$$(echo $$MINIKUBE_IP | cut -d'.' -f1-3); \
+	cat <<-EOF | kubectl apply -f - \
+	apiVersion: metallb.io/v1beta1 \
+	kind: IPAddressPool \
+	metadata: \
+	  name: default-pool \
+	  namespace: metallb-system \
+	spec: \
+	  addresses: \
+	  - $${IP_PREFIX}.100-$${IP_PREFIX}.110 \
+	--- \
+	apiVersion: metallb.io/v1beta1 \
+	kind: L2Advertisement \
+	metadata: \
+	  name: default \
+	  namespace: metallb-system \
+	spec: \
+	  ipAddressPools: \
+	  - default-pool \
+	EOF
+	@echo ""
+	@echo "✓ Setup complete!"
 	@echo ""
 	@echo "Minikube IP: $$(minikube ip)"
-	@echo ""
-	@echo "Please configure MetalLB with an IP range:"
-	@echo "  minikube addons configure metallb"
-	@echo "  Suggested range: $$(minikube ip | cut -d'.' -f1-3).100-$$(minikube ip | cut -d'.' -f1-3).110"
+	@echo "MetalLB IP range: $$(minikube ip | cut -d'.' -f1-3).100-$$(minikube ip | cut -d'.' -f1-3).110"
 	@echo ""
 
 # Verify setup
