@@ -22,7 +22,8 @@
       "Bash(kind: L2Advertisement)",
       "Bash(name: default)",
       "Bash(ipAddressPools:)",
-      "Bash(EOF)"
+      "Bash(EOF)",
+      "Bash(minikube addons enable:*)"
     ]
   }
 }

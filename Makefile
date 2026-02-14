@@ -47,6 +47,11 @@ setup-minikube:
 	@echo "Enabling storage provisioner..."
 	minikube addons enable storage-provisioner || true
 	@echo ""
+	@echo "Installing metrics-server (manual installation)..."
+	@kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml >/dev/null
+	@echo "Patching metrics-server for minikube..."
+	@kubectl patch deployment metrics-server -n kube-system --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]' >/dev/null
+	@echo ""
 	@echo "Installing MetalLB (manual installation)..."
 	@kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
 	@echo "Waiting for MetalLB deployment to be created..."
