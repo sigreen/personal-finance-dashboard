@@ -7,10 +7,11 @@ import uuid
 import shutil
 from pathlib import Path
 
-from ..database import get_db, Account, ImportLog, ImportStatus
+from ..database import get_db, Account, Transaction, ImportLog, ImportStatus
 from ..schemas import (
     AccountCreate,
     AccountResponse,
+    TransactionResponse,
     UploadResponse,
     ImportLogResponse,
     CSVPreview,
@@ -65,6 +66,25 @@ async def get_account(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     return account
+
+
+@router.get("/transactions", response_model=List[TransactionResponse])
+async def get_transactions(
+    account_id: Optional[uuid.UUID] = Query(None),
+    limit: int = Query(100, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Get transactions with optional filtering."""
+    query = db.query(Transaction)
+
+    if account_id:
+        query = query.filter(Transaction.account_id == account_id)
+
+    query = query.order_by(Transaction.transaction_date.desc())
+    query = query.offset(offset).limit(limit)
+
+    return query.all()
 
 
 @router.post("/upload", response_model=UploadResponse)

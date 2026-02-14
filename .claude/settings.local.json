@@ -36,7 +36,30 @@
       "Bash(make deploy-etl:*)",
       "Bash(curl:*)",
       "Bash(python3:*)",
-      "Bash(kubectl rollout:*)"
+      "Bash(kubectl rollout:*)",
+      "Bash(npm install)",
+      "Bash(make build-frontend:*)",
+      "Bash(minikube service:*)",
+      "Bash(minikube ip:*)",
+      "Bash(ping:*)",
+      "Bash(ip route:*)",
+      "Bash(minikube ssh:*)",
+      "Bash(ip link:*)",
+      "Bash(podman network:*)",
+      "Bash(ip addr:*)",
+      "Bash(podman unshare:*)",
+      "Bash(/tmp/setup-metallb-route.sh:*)",
+      "Bash(./scripts/switch-to-rootful.sh)",
+      "Bash(minikube delete:*)",
+      "Bash(minikube config unset:*)",
+      "Bash(sudo minikube start:*)",
+      "Bash(minikube config set:*)",
+      "Bash(minikube start:*)",
+      "Bash(podman volume rm:*)",
+      "Bash(podman ps:*)",
+      "Bash(podman rm:*)",
+      "Bash(make deploy-all:*)",
+      "Bash(./scripts/enable-metallb-access.sh:*)"
     ]
   }
 }

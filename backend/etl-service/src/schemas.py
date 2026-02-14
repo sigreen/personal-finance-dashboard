@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field, UUID4
 from typing import Optional, Dict, Any
 from datetime import datetime, date
+from decimal import Decimal
 from enum import Enum
 
 
@@ -47,6 +48,24 @@ class AccountResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TransactionResponse(BaseModel):
+    id: UUID4
+    account_id: UUID4
+    transaction_date: date
+    post_date: Optional[date]
+    description: str
+    original_description: Optional[str]
+    amount: Decimal
+    transaction_type: TransactionTypeEnum
+    merchant: Optional[str]
+    category_id: Optional[UUID4]
+    is_duplicate: bool
+    created_at: datetime
 
     class Config:
         from_attributes = True
