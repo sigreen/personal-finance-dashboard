@@ -62,10 +62,72 @@ fi
 
 echo ""
 echo "======================================"
+echo "Step 4: Setting up Nginx Reverse Proxy for Home Network Access"
+echo "======================================"
+echo ""
+
+# Check if nginx is installed
+if ! command -v nginx &> /dev/null; then
+    echo "Installing nginx..."
+    dnf install -y nginx
+fi
+
+# Configuration
+HOST_PORT="8080"
+BACKEND="localhost:8888"
+
+# Create nginx configuration for reverse proxy
+echo "Creating nginx configuration..."
+tee /etc/nginx/conf.d/finance-dashboard.conf > /dev/null <<EOF
+server {
+    listen $HOST_PORT;
+    server_name _;
+
+    access_log /var/log/nginx/dashboard-access.log;
+    error_log /var/log/nginx/dashboard-error.log;
+
+    location / {
+        proxy_pass http://$BACKEND;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+EOF
+
+# Configure SELinux to allow nginx to connect to network
+echo "Configuring SELinux for nginx..."
+setsebool -P httpd_can_network_connect 1 2>/dev/null || true
+
+# Test nginx configuration
+echo "Testing nginx configuration..."
+nginx -t
+
+# Enable and start nginx
+echo "Enabling and starting nginx..."
+systemctl enable nginx
+systemctl restart nginx
+
+sleep 2
+echo "✓ Nginx reverse proxy configured on port $HOST_PORT"
+
+echo ""
+echo "======================================"
 echo "✓ Setup Complete!"
 echo "======================================"
 echo ""
-echo "Access your dashboard at: http://${FRONTEND_IP}/"
+echo "Access your dashboard:"
+echo "  - Local: http://${FRONTEND_IP}/"
+echo "  - Home network: http://11.11.2.65:$HOST_PORT"
 echo ""
 echo "To disable and clean up later, run:"
 echo "  sudo ./scripts/disable-metallb.sh"

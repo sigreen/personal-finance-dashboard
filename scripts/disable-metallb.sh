@@ -22,5 +22,13 @@ pkill -f "ssh.*localhost:8888" 2>/dev/null || echo "  No tunnel found"
 echo "Removing dummy interface..."
 ip link del metallb0 2>/dev/null || echo "  Interface not found"
 
+# Stop nginx and remove configuration
+echo "Stopping nginx..."
+systemctl stop nginx 2>/dev/null || echo "  Nginx not running"
+systemctl disable nginx 2>/dev/null || true
+
+echo "Removing nginx configuration..."
+rm -f /etc/nginx/conf.d/finance-dashboard.conf || echo "  Configuration not found"
+
 echo ""
 echo "✓ Cleanup complete!"

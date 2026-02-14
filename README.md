@@ -74,6 +74,35 @@ The project includes several utility scripts in the `scripts/` directory:
 ./scripts/load-images.sh
 ```
 
+### Network Access Scripts
+
+- **`sudo ./scripts/enable-metallb.sh`** - Enable MetalLB LoadBalancer access (includes nginx reverse proxy for home network)
+- **`sudo ./scripts/disable-metallb.sh`** - Disable LoadBalancer access and clean up
+- **`./scripts/setup-nginx-reverse-proxy.sh`** - Set up nginx reverse proxy only (standalone)
+- **`./scripts/remove-nginx-reverse-proxy.sh`** - Remove nginx reverse proxy
+
+#### Accessing the Dashboard
+
+After deploying the frontend and running `enable-metallb.sh`, you can access the dashboard:
+
+**Local Access:**
+```bash
+# Access via MetalLB LoadBalancer IP
+http://192.168.49.100/
+```
+
+**Home Network Access:**
+```bash
+# Access from any device on your local network (e.g., phone, tablet, another computer)
+http://11.11.2.65:8080/
+```
+
+The `enable-metallb.sh` script automatically sets up:
+1. Dummy network interface for MetalLB IP
+2. SSH tunnel through minikube
+3. iptables rules for routing
+4. Nginx reverse proxy for home network access on port 8080
+
 ## Makefile Commands
 
 A comprehensive Makefile is provided for all common operations:
