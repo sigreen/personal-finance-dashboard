@@ -49,8 +49,11 @@ setup-minikube:
 	@echo ""
 	@echo "Installing MetalLB (manual installation)..."
 	@kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
+	@echo "Waiting for MetalLB deployment to be created..."
+	@until kubectl get deployment -n metallb-system controller >/dev/null 2>&1; do sleep 1; done
 	@echo "Waiting for MetalLB to be ready..."
-	@kubectl wait --namespace metallb-system --for=condition=ready pod --selector=app=metallb --timeout=90s
+	@kubectl rollout status deployment/controller -n metallb-system --timeout=90s
+	@kubectl rollout status daemonset/speaker -n metallb-system --timeout=90s
 	@echo ""
 	@echo "Configuring MetalLB IP pool..."
 	@MINIKUBE_IP=$$(minikube ip); \
