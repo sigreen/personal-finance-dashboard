@@ -32,7 +32,8 @@ INSERT INTO categories (name, parent_category_id, category_type, icon, color, de
     ('Property Tax', (SELECT id FROM categories WHERE name = 'Housing'), 'expense', '🏛️', '#EF4444', 'Property taxes'),
     ('Home Insurance', (SELECT id FROM categories WHERE name = 'Housing'), 'expense', '🛡️', '#EF4444', 'Homeowners or renters insurance'),
     ('Home Maintenance', (SELECT id FROM categories WHERE name = 'Housing'), 'expense', '🔧', '#EF4444', 'Repairs and maintenance'),
-    ('HOA Fees', (SELECT id FROM categories WHERE name = 'Housing'), 'expense', '🏘️', '#EF4444', 'Homeowners association fees');
+    ('HOA Fees', (SELECT id FROM categories WHERE name = 'Housing'), 'expense', '🏘️', '#EF4444', 'Homeowners association fees'),
+    ('Barn', (SELECT id FROM categories WHERE name = 'Housing'), 'expense', '🏚️', '#EF4444', 'Barn maintenance and expenses');
 
 -- ===================================================
 -- PARENT EXPENSE CATEGORIES - Utilities
@@ -127,6 +128,10 @@ INSERT INTO categories (name, parent_category_id, category_type, icon, color, de
     ('Travel', (SELECT id FROM categories WHERE name = 'Entertainment'), 'expense', '✈️', '#F97316', 'Vacations and trips'),
     ('Pets', (SELECT id FROM categories WHERE name = 'Entertainment'), 'expense', '🐕', '#F97316', 'Pet care and supplies');
 
+-- Pets subcategories
+INSERT INTO categories (name, parent_category_id, category_type, icon, color, description) VALUES
+    ('Dogs', (SELECT id FROM categories WHERE name = 'Pets'), 'expense', '🐕', '#F97316', 'Dog care and supplies');
+
 -- ===================================================
 -- PARENT EXPENSE CATEGORIES - Education
 -- ===================================================
@@ -180,6 +185,13 @@ INSERT INTO categories (name, parent_category_id, category_type, icon, color, de
     ('Federal Tax', (SELECT id FROM categories WHERE name = 'Taxes'), 'expense', '🏛️', '#DC2626', 'Federal income tax'),
     ('State Tax', (SELECT id FROM categories WHERE name = 'Taxes'), 'expense', '🏛️', '#DC2626', 'State income tax'),
     ('Sales Tax', (SELECT id FROM categories WHERE name = 'Taxes'), 'expense', '🏛️', '#DC2626', 'Sales tax payments');
+
+-- ===================================================
+-- LOCATION-SPECIFIC CATEGORIES
+-- ===================================================
+
+INSERT INTO categories (name, parent_category_id, category_type, icon, color, description) VALUES
+    ('Vermont', NULL, 'expense', '🏔️', '#065F46', 'Vermont-specific expenses');
 
 -- ===================================================
 -- UNCATEGORIZED
