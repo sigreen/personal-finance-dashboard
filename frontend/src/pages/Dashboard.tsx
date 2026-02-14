@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getAccounts, getTransactions } from '../services/api';
 import type { Account, Transaction } from '../types';
 import AccountSummaryCard from '../components/AccountSummaryCard';
@@ -6,7 +6,8 @@ import RecentTransactions from '../components/RecentTransactions';
 
 export default function Dashboard() {
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -14,12 +15,14 @@ export default function Dashboard() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [accountsData, transactionsData] = await Promise.all([
+        const [accountsData, recentData, allData] = await Promise.all([
           getAccounts(),
           getTransactions({ limit: 10 }),
+          getTransactions({ limit: 1000 }), // Fetch up to 1000 for summaries
         ]);
         setAccounts(accountsData);
-        setTransactions(transactionsData);
+        setRecentTransactions(recentData);
+        setAllTransactions(allData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch data');
       } finally {
@@ -29,6 +32,38 @@ export default function Dashboard() {
 
     fetchData();
   }, []);
+
+  // Calculate spending by credit card
+  const creditCardSpending = useMemo(() => {
+    const creditCardAccounts = accounts.filter(a => a.account_type === 'credit_card');
+    return creditCardAccounts.map(account => {
+      const accountTransactions = allTransactions.filter(
+        t => t.account_id === account.id && t.transaction_type === 'debit'
+      );
+      const total = accountTransactions.reduce((sum, t) => sum + t.amount, 0);
+      return {
+        account,
+        total,
+        count: accountTransactions.length,
+      };
+    }).sort((a, b) => b.total - a.total);
+  }, [accounts, allTransactions]);
+
+  // Calculate spending by merchant
+  const merchantSpending = useMemo(() => {
+    const merchantMap = new Map<string, number>();
+    allTransactions
+      .filter(t => t.transaction_type === 'debit' && t.merchant)
+      .forEach(t => {
+        const merchant = t.merchant || 'Unknown';
+        merchantMap.set(merchant, (merchantMap.get(merchant) || 0) + t.amount);
+      });
+
+    return Array.from(merchantMap.entries())
+      .map(([merchant, total]) => ({ merchant, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10); // Top 10 merchants
+  }, [allTransactions]);
 
   if (loading) {
     return (
@@ -84,12 +119,97 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Credit Card Spending Summary */}
+      {creditCardSpending.length > 0 && (
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+              Credit Card Spending
+            </h3>
+            <div className="space-y-4">
+              {creditCardSpending.map(({ account, total, count }) => (
+                <div key={account.id} className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {account.account_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {account.institution_name} - {count} transactions
+                        </p>
+                      </div>
+                      <p className="text-lg font-semibold text-red-600">
+                        ${total.toFixed(2)}
+                      </p>
+                    </div>
+                    {creditCardSpending.length > 1 && (
+                      <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-red-500 h-2 rounded-full"
+                          style={{
+                            width: `${(total / Math.max(...creditCardSpending.map(s => s.total))) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {creditCardSpending.length > 1 && (
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-900">Total Spending</p>
+                    <p className="text-xl font-bold text-red-600">
+                      ${creditCardSpending.reduce((sum, s) => sum + s.total, 0).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top Merchants */}
+      {merchantSpending.length > 0 && (
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+              Top Spending by Merchant
+            </h3>
+            <div className="space-y-3">
+              {merchantSpending.map(({ merchant, total }) => (
+                <div key={merchant} className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-900">{merchant}</p>
+                      <p className="text-sm font-semibold text-gray-700">
+                        ${total.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
+                      <div
+                        className="bg-blue-500 h-1.5 rounded-full"
+                        style={{
+                          width: `${(total / merchantSpending[0].total) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white shadow rounded-lg">
         <div className="px-4 py-5 sm:p-6">
           <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
             Recent Transactions
           </h3>
-          <RecentTransactions transactions={transactions} />
+          <RecentTransactions transactions={recentTransactions} />
         </div>
       </div>
     </div>

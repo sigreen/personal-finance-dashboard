@@ -60,7 +60,7 @@ class TransactionResponse(BaseModel):
     post_date: Optional[date]
     description: str
     original_description: Optional[str]
-    amount: Decimal
+    amount: float
     transaction_type: TransactionTypeEnum
     merchant: Optional[str]
     category_id: Optional[UUID4]
@@ -69,6 +69,9 @@ class TransactionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            Decimal: lambda v: float(v)
+        }
 
 
 class ImportLogResponse(BaseModel):
