@@ -31,7 +31,9 @@
       "Bash(kubectl exec:*)",
       "Bash(make deploy-db:*)",
       "Bash(make run-migrations:*)",
-      "Bash(kubectl cp:*)"
+      "Bash(kubectl cp:*)",
+      "Bash(make build-etl:*)",
+      "Bash(make deploy-etl:*)"
     ]
   }
 }

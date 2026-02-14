@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etl-service-config
+  namespace: default
+data:
+  APP_NAME: "Finance ETL Service"
+  DEBUG: "false"
+  UPLOAD_DIR: "/tmp/uploads"
+  MAX_FILE_SIZE: "52428800"  # 50MB in bytes
+  DEFAULT_ENCODING: "utf-8"

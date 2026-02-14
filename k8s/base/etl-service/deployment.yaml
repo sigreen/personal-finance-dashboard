@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etl-service
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: etl-service
+  template:
+    metadata:
+      labels:
+        app: etl-service
+    spec:
+      containers:
+      - name: etl-service
+        image: localhost/finance-etl:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: DATABASE_URL
+        - name: APP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: etl-service-config
+              key: APP_NAME
+        - name: DEBUG
+          valueFrom:
+            configMapKeyRef:
+              name: etl-service-config
+              key: DEBUG
+        - name: UPLOAD_DIR
+          valueFrom:
+            configMapKeyRef:
+              name: etl-service-config
+              key: UPLOAD_DIR
+        - name: MAX_FILE_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: etl-service-config
+              key: MAX_FILE_SIZE
+        volumeMounts:
+        - name: uploads
+          mountPath: /tmp/uploads
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: uploads
+        emptyDir: {}

@@ -107,7 +107,11 @@ build-all: build-etl build-mcp build-frontend
 build-etl:
 	@echo "Building ETL service image..."
 	@if [ -f backend/etl-service/Containerfile ]; then \
-		podman build -t finance-etl:latest ./backend/etl-service; \
+		podman build -t localhost/finance-etl:latest ./backend/etl-service; \
+		echo "Loading image into minikube..."; \
+		podman save localhost/finance-etl:latest -o /tmp/finance-etl.tar; \
+		minikube image load /tmp/finance-etl.tar; \
+		rm /tmp/finance-etl.tar; \
 	else \
 		echo "Containerfile not found. Skipping ETL service build."; \
 	fi
@@ -165,7 +169,12 @@ build-migration:
 deploy-etl:
 	@echo "Deploying ETL service..."
 	@if [ -d k8s/base/etl-service ]; then \
-		kubectl apply -f k8s/base/etl-service/; \
+		kubectl apply -f k8s/base/etl-service/configmap.yaml; \
+		kubectl apply -f k8s/base/etl-service/deployment.yaml; \
+		kubectl apply -f k8s/base/etl-service/service.yaml; \
+		echo "Waiting for ETL service to be ready..."; \
+		kubectl wait --for=condition=available deployment/etl-service --timeout=120s; \
+		echo "✓ ETL service deployed"; \
 	else \
 		echo "ETL service manifests not found. Skipping."; \
 	fi
