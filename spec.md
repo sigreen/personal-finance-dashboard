@@ -47,7 +47,7 @@ CSV Files → Web UI → ETL Service → PostgreSQL → MCP Server → Claude/AI
 
 #### Step 1.2: Setup Minikube & Kubernetes
 - Install minikube
-- Start minikube cluster: `minikube start --cpus=4 --memory=8192 --container-runtime=cri-o`
+- Start minikube cluster: `minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o`
 - Enable required addons:
   - `minikube addons enable metallb`
   - `minikube addons enable storage-provisioner`

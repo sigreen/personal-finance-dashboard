@@ -69,8 +69,8 @@ cd /home/simon/Workspace/personal-finance-dashboard
 ### 2. Start Minikube with CRI-O Runtime
 
 ```bash
-# Start minikube with CRI-O container runtime
-minikube start --cpus=4 --memory=8192 --container-runtime=cri-o
+# Start minikube with Podman driver and CRI-O container runtime
+minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o
 
 # Verify cluster is running
 kubectl cluster-info

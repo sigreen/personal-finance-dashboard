@@ -19,8 +19,8 @@ echo "✓ kubectl installed"
 echo ""
 
 # Start minikube
-echo "Starting minikube cluster with CRI-O runtime..."
-minikube start --cpus=4 --memory=8192 --container-runtime=cri-o
+echo "Starting minikube cluster with Podman driver and CRI-O runtime..."
+minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o
 
 echo ""
 echo "✓ Minikube cluster started"

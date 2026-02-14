@@ -40,7 +40,7 @@ help:
 # Setup minikube cluster
 setup-minikube:
 	@echo "Starting minikube cluster..."
-	minikube start --cpus=4 --memory=8192 --container-runtime=cri-o
+	minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o
 	@echo ""
 	@echo "Enabling MetalLB addon..."
 	minikube addons enable metallb

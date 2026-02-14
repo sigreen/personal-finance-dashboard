@@ -87,7 +87,7 @@ Once the infrastructure is set up, proceed to Phase 2:
 ```bash
 # Delete existing cluster and start fresh
 minikube delete
-minikube start --cpus=4 --memory=8192 --container-runtime=cri-o
+minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o
 ```
 
 ### Issue: MetalLB pods not running
