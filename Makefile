@@ -58,30 +58,17 @@ setup-minikube:
 	@echo "Configuring MetalLB IP pool..."
 	@MINIKUBE_IP=$$(minikube ip); \
 	IP_PREFIX=$$(echo $$MINIKUBE_IP | cut -d'.' -f1-3); \
-	cat <<-EOF | kubectl apply -f - \
-	apiVersion: metallb.io/v1beta1 \
-	kind: IPAddressPool \
-	metadata: \
-	  name: default-pool \
-	  namespace: metallb-system \
-	spec: \
-	  addresses: \
-	  - $${IP_PREFIX}.100-$${IP_PREFIX}.110 \
-	--- \
-	apiVersion: metallb.io/v1beta1 \
-	kind: L2Advertisement \
-	metadata: \
-	  name: default \
-	  namespace: metallb-system \
-	spec: \
-	  ipAddressPools: \
-	  - default-pool \
-	EOF
+	printf 'apiVersion: metallb.io/v1beta1\nkind: IPAddressPool\nmetadata:\n  name: default-pool\n  namespace: metallb-system\nspec:\n  addresses:\n  - %s.100-%s.110\n---\napiVersion: metallb.io/v1beta1\nkind: L2Advertisement\nmetadata:\n  name: default\n  namespace: metallb-system\nspec:\n  ipAddressPools:\n  - default-pool\n' "$$IP_PREFIX" "$$IP_PREFIX" | kubectl apply -f - >/dev/null
 	@echo ""
-	@echo "✓ Setup complete!"
+	@echo "======================================"
+	@echo "✓ Setup Complete!"
+	@echo "======================================"
 	@echo ""
 	@echo "Minikube IP: $$(minikube ip)"
 	@echo "MetalLB IP range: $$(minikube ip | cut -d'.' -f1-3).100-$$(minikube ip | cut -d'.' -f1-3).110"
+	@echo ""
+	@echo "Verify setup with:"
+	@echo "  make verify-setup"
 	@echo ""
 
 # Verify setup
