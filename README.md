@@ -2,6 +2,28 @@
 
 A personal finance management system that imports financial data from CSV files, stores them in a PostgreSQL database, and exposes the data through an MCP (Model Context Protocol) server for querying by Claude and other AI models.
 
+## TL;DR - Quick Start
+
+```bash
+# 1. Verify prerequisites are installed
+make verify-setup
+
+# 2. Set up the infrastructure (one command!)
+make setup-minikube
+
+# 3. That's it! You're ready for Phase 2
+```
+
+**What this does:**
+- Configures and starts minikube with rootless Podman
+- Installs MetalLB load balancer
+- Configures IP address pool automatically
+- Sets up storage provisioner
+
+**Next:** Follow the [spec.md](spec.md) to implement Phase 2 (Database) and beyond.
+
+---
+
 ## Architecture
 
 - **Web UI**: React-based interface for CSV uploads and data visualization
@@ -58,15 +80,70 @@ curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest
 sudo dpkg -i minikube_latest_amd64.deb
 ```
 
-## Setup Instructions
+## Quick Setup (Recommended)
 
-### 1. Clone and Navigate to Repository
+### Option 1: Automated Setup Script
+
+The easiest way to get started:
 
 ```bash
-cd /home/simon/Workspace/personal-finance-dashboard
+# Run the automated setup script
+./scripts/setup-minikube.sh
 ```
 
-### 2. Start Minikube with CRI-O Runtime
+This script will:
+- Configure minikube for rootless Podman
+- Start minikube cluster with Podman driver and CRI-O runtime
+- Enable storage provisioner
+- Install and configure MetalLB (manual installation)
+- Configure IP address pool automatically
+
+### Option 2: Using Makefile
+
+```bash
+# Run complete setup
+make setup-minikube
+
+# Verify everything is working
+make verify-setup
+```
+
+The Makefile provides the same automated setup as the script, plus additional commands for building, deploying, and managing the application.
+
+### Verify Setup
+
+After running either setup method:
+
+```bash
+# Check cluster status
+kubectl cluster-info
+
+# Check MetalLB installation
+kubectl get pods -n metallb-system
+kubectl get ipaddresspool -n metallb-system
+
+# Check all resources
+kubectl get all -A
+```
+
+You should see:
+- ✅ Minikube cluster running
+- ✅ MetalLB controller and speaker pods running
+- ✅ IP address pool configured (e.g., 192.168.49.100-192.168.49.110)
+
+---
+
+## Manual Setup (Alternative)
+
+If you prefer to set up each component manually:
+
+### 1. Configure Rootless Podman
+
+```bash
+minikube config set rootless true
+```
+
+### 2. Start Minikube
 
 ```bash
 # Start minikube with Podman driver and CRI-O container runtime
@@ -78,18 +155,21 @@ kubectl cluster-info
 
 ### 3. Install and Configure MetalLB
 
-MetalLB is installed automatically by the setup script using manual installation (the minikube addon doesn't work with rootless Podman).
-
-If you need to install it manually:
-
 ```bash
 # Install MetalLB
 kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.14.9/config/manifests/metallb-native.yaml
 
-# Wait for MetalLB to be ready
-kubectl wait --namespace metallb-system --for=condition=ready pod --selector=app=metallb --timeout=90s
+# Wait for deployment to be created
+until kubectl get deployment -n metallb-system controller >/dev/null 2>&1; do sleep 1; done
 
-# Configure IP pool (replace with your minikube IP prefix)
+# Wait for MetalLB to be ready
+kubectl rollout status deployment/controller -n metallb-system --timeout=90s
+kubectl rollout status daemonset/speaker -n metallb-system --timeout=90s
+
+# Configure IP pool (auto-detects minikube IP range)
+MINIKUBE_IP=$(minikube ip)
+IP_PREFIX=$(echo $MINIKUBE_IP | cut -d'.' -f1-3)
+
 cat <<EOF | kubectl apply -f -
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
@@ -98,30 +178,24 @@ metadata:
   namespace: metallb-system
 spec:
   addresses:
-  - 192.168.49.100-192.168.49.110
+  - ${IP_PREFIX}.100-${IP_PREFIX}.110
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
 metadata:
   name: default
   namespace: metallb-system
+spec:
+  ipAddressPools:
+  - default-pool
 EOF
 ```
 
-### 4. Enable Other Required Addons
+---
 
-```bash
-# Enable storage provisioner
-minikube addons enable storage-provisioner
+## Working with Podman and Minikube
 
-# Enable metrics server
-minikube addons enable metrics-server
-
-# Verify addons
-minikube addons list
-```
-
-### 5. Configure Podman for Minikube
+### Configure Podman for Minikube
 
 You have three options to use Podman with minikube:
 
@@ -153,46 +227,84 @@ podman build -t localhost:5000/finance-etl:latest ./backend/etl-service
 podman push localhost:5000/finance-etl:latest
 ```
 
-### 6. Verify Setup
+---
+
+## Available Scripts
+
+The project includes several utility scripts in the `scripts/` directory:
+
+### Setup Scripts
+
+- **`./scripts/setup-minikube.sh`** - Complete automated setup (minikube + MetalLB)
+- **`./scripts/build-all.sh`** - Build all container images with Podman
+- **`./scripts/load-images.sh`** - Load built images into minikube
+
+### Usage Examples
 
 ```bash
-# Check cluster status
-kubectl get nodes
+# Complete infrastructure setup
+./scripts/setup-minikube.sh
 
-# Check enabled addons
-minikube addons list | grep enabled
-
-# Verify MetalLB is running
-kubectl get pods -n metallb-system
-
-# Check available storage classes
-kubectl get sc
-```
-
-## Quick Start with Makefile
-
-A Makefile is provided for common operations:
-
-```bash
-# Build all container images
-make build-all
+# Build all services
+./scripts/build-all.sh
 
 # Load images into minikube
-make load-images
+./scripts/load-images.sh
+```
 
-# Deploy all services
-make deploy-all
+## Makefile Commands
 
-# Get LoadBalancer IPs
-make get-ips
+A comprehensive Makefile is provided for all common operations:
 
-# View logs
-make logs-etl
-make logs-mcp
-make logs-frontend
+### Setup Commands
+```bash
+make setup-minikube    # Start and configure minikube cluster
+make verify-setup      # Verify prerequisites and setup
+```
 
-# Clean up
-make clean
+### Build Commands
+```bash
+make build-all         # Build all container images
+make build-etl         # Build ETL service only
+make build-mcp         # Build MCP server only
+make build-frontend    # Build frontend only
+```
+
+### Deploy Commands
+```bash
+make load-images       # Load all images into minikube
+make deploy-all        # Deploy all services to Kubernetes
+make deploy-db         # Deploy PostgreSQL only
+make deploy-etl        # Deploy ETL service only
+make deploy-mcp        # Deploy MCP server only
+make deploy-frontend   # Deploy frontend only
+```
+
+### Info Commands
+```bash
+make get-ips           # Show all LoadBalancer IPs
+make status            # Show status of all pods and services
+```
+
+### Log Commands
+```bash
+make logs-etl          # Tail ETL service logs
+make logs-mcp          # Tail MCP server logs
+make logs-frontend     # Tail frontend logs
+make logs-db           # Tail PostgreSQL logs
+```
+
+### Utility Commands
+```bash
+make port-forward-mcp  # Port forward MCP server to localhost:8081
+make shell-db          # Open psql shell in database pod
+make clean             # Delete all deployments
+make clean-all         # Stop minikube and clean everything
+```
+
+### Get Help
+```bash
+make help              # Show all available commands
 ```
 
 ## Project Structure
@@ -225,7 +337,7 @@ personal-finance-dashboard/
 5. **Phase 6**: Integration testing
 6. **Phase 7**: Production readiness (monitoring, backups, etc.)
 
-See `spec.model` for detailed implementation plan.
+See `spec.md` for detailed implementation plan.
 
 ## Common Commands
 
@@ -295,7 +407,9 @@ podman rmi <image-name>
 ```bash
 # Delete and recreate
 minikube delete
-minikube start --cpus=4 --memory=8192 --container-runtime=cri-o
+make setup-minikube
+# OR
+./scripts/setup-minikube.sh
 ```
 
 ### Images not found in minikube
@@ -309,13 +423,15 @@ minikube image load <image-name>
 
 ### MetalLB not assigning IPs
 ```bash
-# Check MetalLB configuration
-kubectl get configmap -n metallb-system config -o yaml
+# Check MetalLB pods
+kubectl get pods -n metallb-system
 
-# Reconfigure MetalLB
-minikube addons disable metallb
-minikube addons enable metallb
-minikube addons configure metallb
+# Check IP address pool configuration
+kubectl get ipaddresspool -n metallb-system
+
+# Reinstall MetalLB if needed
+kubectl delete namespace metallb-system
+make setup-minikube
 ```
 
 ### Services pending external IP
@@ -329,11 +445,12 @@ kubectl describe svc <service-name>
 
 ## Documentation
 
-- [Full Specification](spec.model) - Complete technical specification
-- [Architecture Docs](docs/architecture.md) - System architecture details
-- [Database Schema](docs/database-schema.md) - Database design
-- [API Documentation](docs/api.md) - REST API endpoints
-- [MCP Tools](docs/mcp-tools.md) - Available MCP tools and usage
+- [Full Specification](spec.md) - Complete technical specification
+- [Quick Start Guide](docs/quick-start.md) - Fast setup and common tasks
+- [Architecture Docs](docs/architecture.md) - System architecture details (to be created)
+- [Database Schema](docs/database-schema.md) - Database design (to be created)
+- [API Documentation](docs/api.md) - REST API endpoints (to be created)
+- [MCP Tools](docs/mcp-tools.md) - Available MCP tools and usage (to be created)
 
 ## Contributing
 
