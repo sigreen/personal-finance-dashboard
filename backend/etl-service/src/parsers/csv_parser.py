@@ -109,9 +109,14 @@ class CSVParser:
         with open(self.file_path, 'r', encoding=encoding) as f:
             total_rows = sum(1 for _ in f) - 1  # Subtract header
 
+        # Convert all values to strings for Pydantic validation
+        # Replace NaN with empty string
+        df_sample = df_sample.fillna('')
+        sample_rows = df_sample.astype(str).values.tolist()
+
         return {
             "headers": df_sample.columns.tolist(),
-            "sample_rows": df_sample.values.tolist(),
+            "sample_rows": sample_rows,
             "total_rows": total_rows,
             "detected_delimiter": delimiter,
             "detected_encoding": encoding
