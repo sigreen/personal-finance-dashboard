@@ -227,7 +227,8 @@ async def process_import(
         df_transformed = transformer.transform_dataframe(
             df,
             import_request.column_mapping,
-            import_request.date_format
+            import_request.date_format,
+            import_request.negative_means_debit
         )
 
         # Get existing transactions for duplicate detection

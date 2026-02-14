@@ -33,7 +33,10 @@
       "Bash(make run-migrations:*)",
       "Bash(kubectl cp:*)",
       "Bash(make build-etl:*)",
-      "Bash(make deploy-etl:*)"
+      "Bash(make deploy-etl:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(kubectl rollout:*)"
     ]
   }
 }

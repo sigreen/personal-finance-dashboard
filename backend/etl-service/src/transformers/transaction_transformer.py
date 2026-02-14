@@ -50,10 +50,20 @@ class TransactionTransformer:
             return None
 
     @staticmethod
-    def determine_transaction_type(amount: float) -> str:
-        """Determine transaction type from amount."""
-        # Positive = credit (money in), Negative = debit (money out)
-        return "credit" if amount >= 0 else "debit"
+    def determine_transaction_type(amount: float, negative_means_debit: bool = True) -> str:
+        """Determine transaction type from amount.
+
+        Args:
+            amount: The transaction amount (can be positive or negative)
+            negative_means_debit: If True (Chase style), negative=debit, positive=credit.
+                                 If False (Amex style), positive=debit, negative=credit.
+        """
+        if negative_means_debit:
+            # Chase convention: negative = debit (expense), positive = credit (refund/payment)
+            return "debit" if amount < 0 else "credit"
+        else:
+            # Amex convention: positive = debit (expense), negative = credit (payment/refund)
+            return "debit" if amount > 0 else "credit"
 
     @staticmethod
     def extract_merchant(description: str) -> Optional[str]:
@@ -98,7 +108,8 @@ class TransactionTransformer:
         self,
         df: pd.DataFrame,
         column_mapping: Dict[str, str],
-        date_format: Optional[str] = None
+        date_format: Optional[str] = None,
+        negative_means_debit: bool = True
     ) -> pd.DataFrame:
         """Transform DataFrame to standardized format."""
         # Rename columns based on mapping
@@ -118,9 +129,9 @@ class TransactionTransformer:
         # Parse amounts
         df_transformed['amount'] = df_transformed['amount'].apply(self.parse_amount)
 
-        # Convert amount to absolute value and determine transaction type
+        # Determine transaction type BEFORE converting to absolute value
         df_transformed['transaction_type'] = df_transformed['amount'].apply(
-            self.determine_transaction_type
+            lambda x: self.determine_transaction_type(x, negative_means_debit)
         )
         df_transformed['amount'] = df_transformed['amount'].abs()
 

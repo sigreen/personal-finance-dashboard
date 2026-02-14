@@ -89,3 +89,4 @@ class ImportRequest(BaseModel):
     column_mapping: Optional[Dict[str, str]] = None
     date_format: Optional[str] = "MM/DD/YYYY"
     has_header: bool = True
+    negative_means_debit: bool = True  # True for Chase (negative=debit), False for Amex (positive=debit)
