@@ -106,8 +106,13 @@ class CSVParser:
         )
 
         # Get total row count
-        with open(self.file_path, 'r', encoding=encoding) as f:
-            total_rows = sum(1 for _ in f) - 1  # Subtract header
+        try:
+            with open(self.file_path, 'r', encoding=encoding) as f:
+                total_rows = sum(1 for _ in f) - 1  # Subtract header
+        except UnicodeDecodeError:
+            # If the detected encoding fails, try UTF-8 with error handling
+            with open(self.file_path, 'r', encoding=encoding, errors='replace') as f:
+                total_rows = sum(1 for _ in f) - 1  # Subtract header
 
         # Convert all values to strings for Pydantic validation
         # Replace NaN with empty string
