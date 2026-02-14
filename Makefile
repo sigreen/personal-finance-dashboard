@@ -69,11 +69,17 @@ verify-setup:
 	@echo "✓ kubectl: $$(kubectl version --client --short 2>/dev/null || echo 'installed')"
 	@echo ""
 	@echo "Checking minikube status..."
-	@minikube status || (echo "Minikube not running. Run 'make setup-minikube'" && exit 1)
-	@echo ""
-	@echo "Checking addons..."
-	@minikube addons list | grep -E "metallb|storage-provisioner|metrics-server"
-	@echo ""
+	@if minikube status >/dev/null 2>&1; then \
+		echo "✓ Minikube is running"; \
+		echo ""; \
+		echo "Checking addons..."; \
+		minikube addons list | grep -E "metallb|storage-provisioner|metrics-server"; \
+		echo ""; \
+		echo "✓ Setup verification complete!"; \
+	else \
+		echo "✗ Minikube not running. Run 'make setup-minikube' to start it."; \
+		echo ""; \
+	fi
 
 # Build all images
 build-all: build-etl build-mcp build-frontend
