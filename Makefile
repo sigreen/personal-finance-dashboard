@@ -127,7 +127,11 @@ build-mcp:
 build-frontend:
 	@echo "Building frontend image..."
 	@if [ -f frontend/Containerfile ]; then \
-		podman build -t finance-frontend:latest ./frontend; \
+		podman build -t localhost/finance-frontend:latest ./frontend; \
+		echo "Loading image into minikube..."; \
+		podman save localhost/finance-frontend:latest -o /tmp/finance-frontend.tar; \
+		minikube image load /tmp/finance-frontend.tar; \
+		rm /tmp/finance-frontend.tar; \
 	else \
 		echo "Containerfile not found. Skipping frontend build."; \
 	fi
