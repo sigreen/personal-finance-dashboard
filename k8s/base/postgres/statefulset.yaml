@@ -59,6 +59,8 @@ spec:
             - pg_isready
             - -U
             - finance_user
+            - -d
+            - finance_db
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
@@ -69,6 +71,8 @@ spec:
             - pg_isready
             - -U
             - finance_user
+            - -d
+            - finance_db
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
