@@ -1,27 +1,33 @@
 import { useEffect, useState } from 'react';
 import { getAccounts } from '../services/api';
 import type { Account } from '../types';
+import CreateAccountModal from '../components/CreateAccountModal';
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const fetchAccounts = async () => {
+    try {
+      setLoading(true);
+      const data = await getAccounts();
+      setAccounts(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch accounts');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchAccounts = async () => {
-      try {
-        setLoading(true);
-        const data = await getAccounts();
-        setAccounts(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch accounts');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAccounts();
   }, []);
+
+  const handleAccountCreated = (newAccount: Account) => {
+    setAccounts([...accounts, newAccount]);
+  };
 
   const getAccountTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
@@ -53,12 +59,27 @@ export default function AccountsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Accounts</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          Manage your financial accounts
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Accounts</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Manage your financial accounts
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Create Account
+        </button>
       </div>
+
+      {showCreateModal && (
+        <CreateAccountModal
+          onClose={() => setShowCreateModal(false)}
+          onAccountCreated={handleAccountCreated}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {accounts.map((account) => (
@@ -112,7 +133,7 @@ export default function AccountsPage() {
         ))}
       </div>
 
-      {accounts.length === 0 && (
+      {accounts.length === 0 && !loading && (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <svg
             className="mx-auto h-12 w-12 text-gray-400"
@@ -129,8 +150,16 @@ export default function AccountsPage() {
           </svg>
           <h3 className="mt-2 text-sm font-medium text-gray-900">No accounts</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Get started by importing transactions.
+            Get started by creating an account.
           </p>
+          <div className="mt-6">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Create Your First Account
+            </button>
+          </div>
         </div>
       )}
     </div>
