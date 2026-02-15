@@ -53,9 +53,9 @@ logs/
 *.sqlite
 *.sqlite3
 
-# CSV data files (keep samples)
+# CSV data file
 *.csv
-!sample-data/*.csv
+sample-data/*.csv
 
 # Kubernetes
 *.kubeconfig

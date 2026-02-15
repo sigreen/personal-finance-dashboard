@@ -115,7 +115,8 @@
       "mcp__personal-finance__get_spending_by_category",
       "mcp__personal-finance__get_cash_flow",
       "mcp__personal-finance__get_merchant_spending",
-      "Bash(.gitignore:*)"
+      "Bash(.gitignore:*)",
+      "Bash(git push:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
