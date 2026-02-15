@@ -55,7 +55,7 @@ logs/
 
 # CSV data file
 *.csv
-sample-data/*.csv
+sample-data/
 
 # Kubernetes
 *.kubeconfig
