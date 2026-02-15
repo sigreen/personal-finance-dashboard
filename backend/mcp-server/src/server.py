@@ -239,22 +239,26 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         )]
 
 
-async def main():
-    """Run the MCP server."""
-    # Test database connection
+async def init_server():
+    """Initialize server resources (database, etc.)."""
     logger.info("Testing database connection...")
     if not db.test_connection():
         logger.warning("Failed to connect to database - will retry on first request")
     else:
         logger.info("Database connection successful")
 
-    logger.info(f"Starting {settings.server_name} v{settings.server_version}")
 
-    # Run the server
+async def main_stdio():
+    """Run the MCP server in stdio mode (legacy)."""
+    await init_server()
+
+    logger.info(f"Starting {settings.server_name} v{settings.server_version} (stdio mode)")
+
+    # Run the server with stdio transport
     from mcp.server.stdio import stdio_server
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main_stdio())

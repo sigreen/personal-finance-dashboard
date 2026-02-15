@@ -20,7 +20,8 @@ COPY main.py .
 RUN useradd -m -u 1000 mcp && chown -R mcp:mcp /app
 USER mcp
 
-# Expose MCP server port (stdio-based, no network port needed)
-# MCP server uses stdio for communication
+# Expose HTTP port for SSE transport
+EXPOSE 8081
 
+# Run MCP server (defaults to HTTP mode, set MCP_TRANSPORT_MODE=stdio for legacy mode)
 CMD ["python", "main.py"]

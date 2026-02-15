@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     server_version: str = "1.0.0"
     log_level: str = "INFO"
 
+    # HTTP server settings
+    http_host: str = "0.0.0.0"
+    http_port: int = 8081
+    transport_mode: str = "http"
+
     @property
     def database_url(self) -> str:
         """Get PostgreSQL database URL."""

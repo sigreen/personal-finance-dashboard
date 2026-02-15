@@ -20,9 +20,12 @@ spec:
       - name: mcp-server
         image: localhost/finance-mcp:latest
         imagePullPolicy: Never
+        ports:
+        - containerPort: 8081
+          name: http
         env:
         - name: DB_HOST
-          value: "postgresql"
+          value: "postgres"
         - name: DB_PORT
           value: "5432"
         - name: DB_NAME
@@ -42,6 +45,10 @@ spec:
               key: POSTGRES_PASSWORD
         - name: LOG_LEVEL
           value: "INFO"
+        - name: MCP_TRANSPORT_MODE
+          value: "http"
+        - name: HTTP_PORT
+          value: "8081"
         resources:
           requests:
             memory: "256Mi"
@@ -49,8 +56,22 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
-        # MCP server uses stdio, so no liveness/readiness probes needed
-        # It's designed to be used via stdio communication, not HTTP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service

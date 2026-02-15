@@ -59,7 +59,23 @@
       "Bash(podman ps:*)",
       "Bash(podman rm:*)",
       "Bash(make deploy-all:*)",
-      "Bash(./scripts/enable-metallb-access.sh:*)"
+      "Bash(./scripts/enable-metallb-access.sh:*)",
+      "Bash(firewall-cmd:*)",
+      "Bash(sudo ./scripts/stop-network-exposure.sh:*)",
+      "Bash(ss:*)",
+      "Bash(journalctl:*)",
+      "Bash(getsebool:*)",
+      "Bash(podman save:*)",
+      "Bash(minikube image load -)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.ragie.ai)",
+      "Bash(podman build:*)",
+      "Bash(minikube image load:*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "personal-finance"
+  ]
 }
