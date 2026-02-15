@@ -1,15 +1,13 @@
 """Transaction-related MCP tools."""
+from typing import Optional, List
+import logging
 
-from typing import Optional
-from datetime import datetime, date
-from sqlalchemy import text
-from decimal import Decimal
-
-from ..database.connection import db
+logger = logging.getLogger(__name__)
 
 
 async def get_transactions(
-    account_ids: Optional[list[str]] = None,
+    db,
+    account_ids: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     category: Optional[str] = None,
@@ -18,167 +16,171 @@ async def get_transactions(
     search_query: Optional[str] = None,
     limit: int = 100,
     offset: int = 0
-) -> dict:
-    """Get transactions with optional filters.
+):
+    """Get transactions with various filters.
 
     Args:
-        account_ids: List of account UUIDs to filter by
-        start_date: Start date (YYYY-MM-DD format)
-        end_date: End date (YYYY-MM-DD format)
-        category: Category name to filter by
+        db: Database connection
+        account_ids: Comma-separated list of account UUIDs
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        category: Category name or UUID
         min_amount: Minimum transaction amount
         max_amount: Maximum transaction amount
-        search_query: Search term for description/merchant
-        limit: Maximum number of results
-        offset: Pagination offset
+        search_query: Search in description, merchant, notes
+        limit: Maximum number of results (default 100, max 1000)
+        offset: Number of results to skip
 
     Returns:
-        Dictionary with transactions and metadata
+        List of transactions matching filters
     """
-    with db.get_session() as session:
-        # Build query dynamically
-        query = """
-            SELECT
-                t.id,
-                t.account_id,
-                a.account_name,
-                a.institution_name,
-                t.transaction_date,
-                t.post_date,
-                t.description,
-                t.original_description,
-                t.amount,
-                t.transaction_type,
-                t.merchant,
-                t.category_id,
-                c.name as category_name,
-                t.is_duplicate,
-                t.created_at
-            FROM transactions t
-            JOIN accounts a ON t.account_id = a.id
-            LEFT JOIN categories c ON t.category_id = c.id
-            WHERE 1=1
-        """
-        params = {}
+    limit = min(limit, 1000)  # Cap at 1000
 
-        # Add filters
-        if account_ids:
-            query += " AND t.account_id = ANY(:account_ids)"
-            params["account_ids"] = account_ids
+    query = """
+        SELECT
+            t.id,
+            t.transaction_date,
+            t.post_date,
+            t.description,
+            t.original_description,
+            t.amount,
+            t.transaction_type,
+            t.merchant,
+            t.notes,
+            t.is_duplicate,
+            a.account_name,
+            a.institution_name,
+            a.account_type,
+            c.name as category_name,
+            c.category_type
+        FROM transactions t
+        JOIN accounts a ON t.account_id = a.id
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE 1=1
+    """
 
-        if start_date:
-            query += " AND t.transaction_date >= :start_date"
-            params["start_date"] = start_date
+    params = []
+    param_count = 0
 
-        if end_date:
-            query += " AND t.transaction_date <= :end_date"
-            params["end_date"] = end_date
+    # Filter by account IDs
+    if account_ids:
+        account_id_list = [aid.strip() for aid in account_ids.split(',')]
+        param_count += 1
+        placeholders = ','.join(f'${i}' for i in range(param_count, param_count + len(account_id_list)))
+        query += f" AND t.account_id = ANY(ARRAY[{placeholders}]::uuid[])"
+        params.extend(account_id_list)
+        param_count += len(account_id_list) - 1
 
-        if category:
-            query += " AND c.name ILIKE :category"
-            params["category"] = f"%{category}%"
+    # Filter by date range
+    if start_date:
+        param_count += 1
+        query += f" AND t.transaction_date >= ${param_count}"
+        params.append(start_date)
 
-        if min_amount is not None:
-            query += " AND t.amount >= :min_amount"
-            params["min_amount"] = min_amount
+    if end_date:
+        param_count += 1
+        query += f" AND t.transaction_date <= ${param_count}"
+        params.append(end_date)
 
-        if max_amount is not None:
-            query += " AND t.amount <= :max_amount"
-            params["max_amount"] = max_amount
+    # Filter by category
+    if category:
+        param_count += 1
+        query += f" AND (c.name ILIKE ${param_count} OR t.category_id::text = ${param_count})"
+        params.append(category if '::' not in category else category.split('::')[0])
 
-        if search_query:
-            query += " AND (t.description ILIKE :search OR t.merchant ILIKE :search)"
-            params["search"] = f"%{search_query}%"
+    # Filter by amount range
+    if min_amount is not None:
+        param_count += 1
+        query += f" AND t.amount >= ${param_count}"
+        params.append(min_amount)
 
-        # Add ordering and pagination
-        query += " ORDER BY t.transaction_date DESC, t.created_at DESC"
-        query += " LIMIT :limit OFFSET :offset"
-        params["limit"] = limit
-        params["offset"] = offset
+    if max_amount is not None:
+        param_count += 1
+        query += f" AND t.amount <= ${param_count}"
+        params.append(max_amount)
 
-        # Execute query
-        result = session.execute(text(query), params)
-        rows = result.fetchall()
+    # Search query
+    if search_query:
+        param_count += 1
+        query += f" AND (t.description ILIKE ${param_count} OR t.merchant ILIKE ${param_count} OR t.notes ILIKE ${param_count})"
+        params.append(f'%{search_query}%')
 
-        # Get total count
-        count_query = """
-            SELECT COUNT(*) as total
-            FROM transactions t
-            JOIN accounts a ON t.account_id = a.id
-            LEFT JOIN categories c ON t.category_id = c.id
-            WHERE 1=1
-        """
-        if account_ids:
-            count_query += " AND t.account_id = ANY(:account_ids)"
-        if start_date:
-            count_query += " AND t.transaction_date >= :start_date"
-        if end_date:
-            count_query += " AND t.transaction_date <= :end_date"
-        if category:
-            count_query += " AND c.name ILIKE :category"
-        if min_amount is not None:
-            count_query += " AND t.amount >= :min_amount"
-        if max_amount is not None:
-            count_query += " AND t.amount <= :max_amount"
-        if search_query:
-            count_query += " AND (t.description ILIKE :search OR t.merchant ILIKE :search)"
+    # Order and pagination
+    query += " ORDER BY t.transaction_date DESC, t.created_at DESC"
+    param_count += 1
+    query += f" LIMIT ${param_count}"
+    params.append(limit)
+    param_count += 1
+    query += f" OFFSET ${param_count}"
+    params.append(offset)
 
-        count_result = session.execute(text(count_query), params)
-        total = count_result.scalar()
+    results = await db.execute_query(query, *params)
 
-        # Format results
-        transactions = []
-        for row in rows:
-            transactions.append({
-                "id": str(row.id),
-                "account_id": str(row.account_id),
-                "account_name": row.account_name,
-                "institution_name": row.institution_name,
-                "transaction_date": row.transaction_date.isoformat() if row.transaction_date else None,
-                "post_date": row.post_date.isoformat() if row.post_date else None,
-                "description": row.description,
-                "original_description": row.original_description,
-                "amount": float(row.amount) if isinstance(row.amount, Decimal) else row.amount,
-                "transaction_type": row.transaction_type,
-                "merchant": row.merchant,
-                "category_id": str(row.category_id) if row.category_id else None,
-                "category_name": row.category_name,
-                "is_duplicate": row.is_duplicate,
-                "created_at": row.created_at.isoformat() if row.created_at else None
-            })
+    transactions = []
+    for row in results:
+        transactions.append({
+            "id": str(row['id']),
+            "transaction_date": row['transaction_date'].isoformat(),
+            "post_date": row['post_date'].isoformat() if row['post_date'] else None,
+            "description": row['description'],
+            "original_description": row['original_description'],
+            "amount": float(row['amount']),
+            "transaction_type": row['transaction_type'],
+            "merchant": row['merchant'],
+            "notes": row['notes'],
+            "is_duplicate": row['is_duplicate'],
+            "account": {
+                "name": row['account_name'],
+                "institution": row['institution_name'],
+                "type": row['account_type']
+            },
+            "category": {
+                "name": row['category_name'],
+                "type": row['category_type']
+            } if row['category_name'] else None
+        })
 
-        return {
-            "transactions": transactions,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-            "has_more": (offset + len(transactions)) < total
-        }
+    return {
+        "transactions": transactions,
+        "count": len(transactions),
+        "limit": limit,
+        "offset": offset
+    }
 
 
 async def search_transactions(
+    db,
     query: str,
-    account_ids: Optional[list[str]] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    account_ids: Optional[str] = None,
+    date_range: Optional[str] = None,
     limit: int = 50
-) -> dict:
+):
     """Full-text search across transactions.
 
     Args:
-        query: Search query string
-        account_ids: Optional list of account UUIDs to filter by
-        start_date: Optional start date filter
-        end_date: Optional end date filter
-        limit: Maximum number of results
+        db: Database connection
+        query: Search query
+        account_ids: Comma-separated list of account UUIDs
+        date_range: Date range in format "start,end"
+        limit: Maximum results
 
     Returns:
-        Dictionary with matching transactions
+        Matching transactions
     """
-    return await get_transactions(
-        account_ids=account_ids,
-        start_date=start_date,
-        end_date=end_date,
-        search_query=query,
-        limit=limit
-    )
+    filters = {
+        'search_query': query,
+        'limit': limit
+    }
+
+    if account_ids:
+        filters['account_ids'] = account_ids
+
+    if date_range:
+        try:
+            start_date, end_date = date_range.split(',')
+            filters['start_date'] = start_date.strip()
+            filters['end_date'] = end_date.strip()
+        except ValueError:
+            logger.warning(f"Invalid date_range format: {date_range}")
+
+    return await get_transactions(db, **filters)

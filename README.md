@@ -1,325 +1,266 @@
 # Personal Finance Dashboard
 
-A personal finance management system that imports financial data from CSV files, stores them in a PostgreSQL database, and exposes the data through an MCP (Model Context Protocol) server for querying by Claude and other AI models.
+A personal finance management system that imports financial data from CSV files, stores them in PostgreSQL, and exposes the data through an MCP (Model Context Protocol) server for AI-powered querying.
 
-## TL;DR - Quick Start
+## 🎯 Features
 
-```bash
-# 1. Verify prerequisites are installed
-make verify-setup
+- **CSV Import**: Import transactions from bank, credit card, and brokerage statements
+- **PostgreSQL Database**: Normalized storage with 838+ transactions across 2 accounts
+- **Web Dashboard**: React-based UI for data visualization and management
+- **MCP Server**: Query your financial data using natural language via Claude Code
+- **Kubernetes**: All services run in minikube for local development
 
-# 2. Set up the infrastructure (one command!)
-make setup-minikube
+## 🏗️ Architecture
 
-# 3. That's it! You're ready for Phase 2
+```
+┌─────────────────┐     ┌──────────────────┐     ┌──────────────┐
+│  Claude Code    │────▶│  MCP Server      │────▶│  PostgreSQL  │
+│  (AI Queries)   │ SSE │  (localhost:8081)│     │  (Kubernetes)│
+└─────────────────┘     └──────────────────┘     └──────────────┘
+                                                          ▲
+                                                          │
+                        ┌─────────────────────────────────┘
+                        │
+                ┌───────▼────────┐          ┌──────────────┐
+                │  ETL Service   │──────────│  Web UI      │
+                │  (CSV Import)  │          │  (React)     │
+                └────────────────┘          └──────────────┘
 ```
 
-**What this does:**
-- Configures and starts minikube with rootless Podman
-- Installs MetalLB load balancer
-- Configures IP address pool automatically
-- Sets up storage provisioner
+## 🚀 Quick Start
 
-**Next:** Follow the [spec.md](spec.md) to implement Phase 2 (Database) and beyond.
+### Prerequisites
 
----
+- **minikube** (with podman driver)
+- **kubectl**
+- **podman**
+- **Python 3.11+**
+- **Node.js 18+**
 
-## Architecture
-
-- **Web UI**: React-based interface for CSV uploads and data visualization
-- **ETL Service**: Python/FastAPI service for CSV parsing and data import
-- **PostgreSQL Database**: Normalized financial data storage
-- **MCP Server**: Exposes financial data tools for AI model queries
-- **Kubernetes**: Orchestration platform (minikube for local development)
-
-## Technology Stack
-
-- **Container Runtime**: Podman
-- **Orchestration**: Kubernetes (minikube with CRI-O)
-- **Load Balancer**: MetalLB
-- **Backend**: Python 3.11+ with FastAPI
-- **Frontend**: React 18+ with TypeScript
-- **Database**: PostgreSQL 15+
-
-## Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Podman** (4.0+): [Installation Guide](https://podman.io/getting-started/installation)
-- **Minikube** (1.30+): [Installation Guide](https://minikube.sigs.k8s.io/docs/start/)
-- **kubectl**: [Installation Guide](https://kubernetes.io/docs/tasks/tools/)
-- **Python** (3.11+): For backend development
-- **Node.js** (18+): For frontend development
-
-## Available Scripts
-
-The project includes several utility scripts in the `scripts/` directory:
-
-### Setup Scripts
-
-- **`./scripts/setup-minikube.sh`** - Complete automated setup (minikube + MetalLB)
-- **`./scripts/build-all.sh`** - Build all container images with Podman
-- **`./scripts/load-images.sh`** - Load built images into minikube
-
-### Usage Examples
+### 1. Setup Infrastructure
 
 ```bash
-# Complete infrastructure setup
-./scripts/setup-minikube.sh
+# Start minikube
+minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o
 
-# Build all services
+# Enable MetalLB
+./scripts/enable-metallb.sh
+
+# Deploy PostgreSQL
+./scripts/deploy-database.sh
+
+# Run migrations
+./scripts/run-migrations.sh
+```
+
+### 2. Deploy Services
+
+```bash
+# Build and deploy all services
 ./scripts/build-all.sh
-
-# Load images into minikube
 ./scripts/load-images.sh
+
+# Deploy to Kubernetes
+kubectl apply -f k8s/base/
 ```
 
-### Network Access Scripts
+### 3. Start MCP Server
 
-- **`sudo ./scripts/enable-metallb.sh`** - Enable MetalLB LoadBalancer access (includes nginx reverse proxy for home network)
-- **`sudo ./scripts/disable-metallb.sh`** - Disable LoadBalancer access and clean up
-- **`./scripts/setup-nginx-reverse-proxy.sh`** - Set up nginx reverse proxy only (standalone)
-- **`./scripts/remove-nginx-reverse-proxy.sh`** - Remove nginx reverse proxy
-
-#### Accessing the Dashboard
-
-After deploying the frontend and running `enable-metallb.sh`, you can access the dashboard:
-
-**Local Access:**
 ```bash
-# Access via MetalLB LoadBalancer IP
-http://192.168.49.100/
+# Start the MCP server (for Claude Code integration)
+./scripts/start-mcp-server.sh
 ```
 
-**Home Network Access:**
-```bash
-# Access from any device on your local network (e.g., phone, tablet, another computer)
-http://11.11.2.65:8080/
-```
+This will:
+- Start PostgreSQL port-forward (localhost:5432)
+- Start MCP server (localhost:8081)
+- Show health status
 
-The `enable-metallb.sh` script automatically sets up:
-1. Dummy network interface for MetalLB IP
-2. SSH tunnel through minikube
-3. iptables rules for routing
-4. Nginx reverse proxy for home network access on port 8080
+### 4. Access Services
 
-## Makefile Commands
+- **Web Dashboard**: `http://192.168.49.100` (via MetalLB LoadBalancer)
+- **MCP Server**: `http://localhost:8081` (local Python server)
+- **ETL Service**: Internal to cluster
 
-A comprehensive Makefile is provided for all common operations:
+## 💬 Using with Claude Code
 
-### Setup Commands
-```bash
-make setup-minikube    # Start and configure minikube cluster
-make verify-setup      # Verify prerequisites and setup
-```
+The MCP server allows you to query your financial data using natural language.
 
-### Build Commands
-```bash
-make build-all         # Build all container images
-make build-etl         # Build ETL service only
-make build-mcp         # Build MCP server only
-make build-frontend    # Build frontend only
-```
+### Setup
 
-### Deploy Commands
-```bash
-make load-images       # Load all images into minikube
-make deploy-all        # Deploy all services to Kubernetes
-make deploy-db         # Deploy PostgreSQL only
-make deploy-etl        # Deploy ETL service only
-make deploy-mcp        # Deploy MCP server only
-make deploy-frontend   # Deploy frontend only
-```
+The MCP server is already configured in `.mcp.json`. Just restart Claude Code after starting the server.
 
-### Info Commands
-```bash
-make get-ips           # Show all LoadBalancer IPs
-make status            # Show status of all pods and services
-```
+### Example Queries
 
-### Log Commands
-```bash
-make logs-etl          # Tail ETL service logs
-make logs-mcp          # Tail MCP server logs
-make logs-frontend     # Tail frontend logs
-make logs-db           # Tail PostgreSQL logs
-```
+Ask Claude Code:
 
-### Utility Commands
-```bash
-make port-forward-mcp  # Port forward MCP server to localhost:8081
-make shell-db          # Open psql shell in database pod
-make clean             # Delete all deployments
-make clean-all         # Stop minikube and clean everything
-```
+**Accounts:**
+- "Show me all my accounts and their balances"
+- "What's my total balance across all accounts?"
 
-### Get Help
-```bash
-make help              # Show all available commands
-```
+**Transactions:**
+- "Show me my last 20 transactions"
+- "Find all Starbucks purchases"
+- "Show me transactions over $100 from December 2025"
 
-## Project Structure
+**Analytics:**
+- "What did I spend by category in 2025?"
+- "Show me my top 10 merchants by spending"
+- "What's my cash flow for the last 6 months?"
+
+### Available MCP Tools
+
+1. **get_account_summary** - Account balances and statistics
+2. **get_account_details** - Detailed account information
+3. **get_transactions** - Query transactions with filters
+4. **search_transactions** - Full-text search
+5. **get_spending_by_category** - Category spending analysis
+6. **get_merchant_spending** - Top merchants by spending
+7. **get_cash_flow** - Income vs expenses over time
+8. **get_budget_status** - Budget tracking
+
+See [QUICKSTART-MCP.md](QUICKSTART-MCP.md) for detailed MCP setup and [MCP-WORKING.md](MCP-WORKING.md) for current status.
+
+## 📁 Project Structure
 
 ```
 personal-finance-dashboard/
 ├── backend/
-│   ├── etl-service/          # CSV import and processing service
-│   ├── mcp-server/           # MCP server for AI queries
-│   └── shared/               # Shared models and utilities
-├── frontend/                 # React web application
+│   ├── etl-service/           # CSV import service (FastAPI + pandas)
+│   └── mcp-server/            # MCP server (Python + SSE)
+│       ├── src/
+│       │   ├── server.py      # Main MCP server
+│       │   ├── database/      # Database connection
+│       │   └── tools/         # MCP tools (accounts, transactions, analytics)
+│       └── README.md
+├── frontend/                   # React dashboard
 ├── database/
-│   ├── migrations/           # Database schema migrations
-│   └── seeds/                # Initial data (categories, etc.)
+│   └── migrations/            # Database schema (PostgreSQL)
 ├── k8s/
-│   ├── base/                 # Base Kubernetes manifests
-│   └── overlays/             # Environment-specific configs
-├── containers/               # Containerfiles
-├── scripts/                  # Utility scripts
-├── docs/                     # Documentation
-└── sample-data/              # Sample CSV files for testing
+│   └── base/                  # Kubernetes manifests
+├── scripts/                   # Deployment and utility scripts
+└── docs/
 ```
 
-## Next Steps
+## 🛠️ Management Commands
 
-1. **Phase 2**: Design and deploy PostgreSQL database
-2. **Phase 3**: Develop ETL service
-3. **Phase 4**: Build web frontend
-4. **Phase 5**: Implement MCP server
-5. **Phase 6**: Integration testing
-6. **Phase 7**: Production readiness (monitoring, backups, etc.)
+### MCP Server
 
-See `spec.md` for detailed implementation plan.
-
-## Common Commands
-
-### Minikube Management
 ```bash
-# Start minikube
-minikube start
+# Start MCP server (recommended)
+./scripts/start-mcp-server.sh
 
-# Stop minikube
-minikube stop
-
-# Delete cluster
-minikube delete
-
-# Access minikube dashboard
-minikube dashboard
-
-# SSH into minikube
-minikube ssh
-```
-
-### Kubernetes Operations
-```bash
-# View all resources
-kubectl get all -A
-
-# View services with external IPs
-kubectl get svc -A
-
-# View pods
-kubectl get pods -A
+# Stop MCP server
+./scripts/stop-mcp-server.sh
 
 # View logs
-kubectl logs -f <pod-name>
-
-# Port forward a service
-kubectl port-forward svc/<service-name> 8080:8080
-
-# Execute command in pod
-kubectl exec -it <pod-name> -- /bin/bash
+tail -f /tmp/mcp-server-local.log
 ```
 
-### Podman Commands
+### Kubernetes
+
 ```bash
-# Build an image
-podman build -t <image-name>:<tag> <path>
+# Check all services
+kubectl get all
 
-# List images
-podman images
+# View logs
+kubectl logs -f -l app=postgres
+kubectl logs -f -l app=etl-service
+kubectl logs -f -l app=frontend
 
-# Run a container
-podman run -p 8080:8080 <image-name>
-
-# List running containers
-podman ps
-
-# Stop a container
-podman stop <container-id>
-
-# Remove an image
-podman rmi <image-name>
+# Restart a service
+kubectl rollout restart deployment/etl-service
 ```
 
-## Troubleshooting
+### Database
 
-### Minikube won't start
 ```bash
-# Delete and recreate
-minikube delete
-make setup-minikube
-# OR
-./scripts/setup-minikube.sh
+# Access PostgreSQL (via port-forward)
+kubectl port-forward svc/postgres 5432:5432 &
+psql postgresql://finance_user:finance_dev_password_change_me@localhost:5432/finance_db
+
+# Run migrations
+./scripts/run-migrations.sh
 ```
 
-### Images not found in minikube
+## 📊 Current Data
+
+- **Accounts**: 2 (American Express Platinum, Chase Hyatt)
+- **Transactions**: 838 total
+- **Date Range**: Through 2025-12-31
+- **Categories**: Income, Expense, Transfer
+- **Balance**: -$2,551.36 total
+
+## 🔧 Development
+
+### ETL Service
+
 ```bash
-# Verify images are loaded
-minikube image ls
-
-# Reload image
-minikube image load <image-name>
+cd backend/etl-service
+npm install
+npm run dev
 ```
 
-### MetalLB not assigning IPs
+### Frontend
+
 ```bash
-# Check MetalLB pods
-kubectl get pods -n metallb-system
-
-# Check IP address pool configuration
-kubectl get ipaddresspool -n metallb-system
-
-# Reinstall MetalLB if needed
-kubectl delete namespace metallb-system
-make setup-minikube
+cd frontend
+npm install
+npm start
 ```
 
-### Services pending external IP
+### MCP Server
+
 ```bash
-# Check MetalLB pods
-kubectl get pods -n metallb-system
-
-# Check service
-kubectl describe svc <service-name>
+cd backend/mcp-server
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python main.py
 ```
 
-## Documentation
+## 📖 Documentation
 
-- [Full Specification](spec.md) - Complete technical specification
-- [Quick Start Guide](docs/quick-start.md) - Fast setup and common tasks
-- [Architecture Docs](docs/architecture.md) - System architecture details (to be created)
-- [Database Schema](docs/database-schema.md) - Database design (to be created)
-- [API Documentation](docs/api.md) - REST API endpoints (to be created)
-- [MCP Tools](docs/mcp-tools.md) - Available MCP tools and usage (to be created)
+- **[spec.md](spec.md)** - Complete technical specification
+- **[QUICKSTART-MCP.md](QUICKSTART-MCP.md)** - MCP server setup guide
+- **[MCP-WORKING.md](MCP-WORKING.md)** - Current MCP server status
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Kubernetes deployment guide
+- **[MINIKUBE-ACCESS.md](MINIKUBE-ACCESS.md)** - Network access configuration
+- **[backend/mcp-server/README.md](backend/mcp-server/README.md)** - MCP server details
 
-## Contributing
+## 🔒 Security Notes
 
-This is a personal project for local deployment. For production use:
-- Add authentication and authorization
-- Implement multi-tenancy
-- Add data encryption
-- Comply with financial data regulations (PCI-DSS, etc.)
+This is configured for **local development only**:
 
-## License
+- Default passwords in use (change for production)
+- No authentication on MCP server
+- Services exposed via MetalLB on local network
+- Database credentials in Kubernetes secrets
 
-This project is for personal use. See LICENSE file for details.
+## 🎯 Roadmap
 
-## Security Notice
+- [ ] Machine learning auto-categorization
+- [ ] Budget tracking and alerts
+- [ ] Investment portfolio tracking
+- [ ] Tax reporting features
+- [ ] Mobile app (React Native)
+- [ ] Direct bank API integration (Plaid)
 
-This application handles sensitive financial data. Ensure:
-- Kubernetes secrets are properly configured
-- CSV files are not committed to version control
-- Database credentials are secure
-- Services are not exposed to public internet without authentication
-- Regular backups of financial data
+## 📝 License
+
+Personal project - Not licensed for distribution
+
+## 🙏 Technologies Used
+
+- **Backend**: Python (FastAPI), Node.js (Express)
+- **Frontend**: React, TypeScript, Material-UI
+- **Database**: PostgreSQL 15+
+- **Infrastructure**: Kubernetes (minikube), Podman, MetalLB
+- **MCP**: Model Context Protocol (SSE transport)
+- **AI**: Claude Code integration
+
+---
+
+**Status**: ✅ Operational
+**Last Updated**: 2026-02-15
+**Version**: 0.2.0

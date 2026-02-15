@@ -1,87 +1,139 @@
 """Account-related MCP tools."""
-
 from typing import Optional
-from sqlalchemy import text
-from decimal import Decimal
+import logging
 
-from ..database.connection import db
+logger = logging.getLogger(__name__)
 
 
-async def get_account_summary(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None
-) -> dict:
-    """Get summary of all accounts with transaction statistics.
+async def get_account_summary(db, date_range: Optional[str] = None):
+    """Get summary of all accounts with current balances.
 
     Args:
-        start_date: Optional start date for transaction stats
-        end_date: Optional end date for transaction stats
+        db: Database connection
+        date_range: Optional date range filter (e.g., "2024-01-01,2024-12-31")
 
     Returns:
-        Dictionary with account summaries
+        List of accounts with balances
     """
-    with db.get_session() as session:
-        # Get accounts with transaction statistics
-        query = """
-            SELECT
-                a.id,
-                a.account_type,
-                a.institution_name,
-                a.account_name,
-                a.account_number_last4,
-                a.currency,
-                a.is_active,
-                a.created_at,
-                COUNT(t.id) as transaction_count,
-                COALESCE(SUM(CASE WHEN t.transaction_type = 'debit' THEN t.amount ELSE 0 END), 0) as total_debits,
-                COALESCE(SUM(CASE WHEN t.transaction_type = 'credit' THEN t.amount ELSE 0 END), 0) as total_credits,
-                MIN(t.transaction_date) as earliest_transaction,
-                MAX(t.transaction_date) as latest_transaction
-            FROM accounts a
-            LEFT JOIN transactions t ON a.id = t.account_id
-        """
+    query = """
+        SELECT
+            a.id,
+            a.account_name,
+            a.institution_name,
+            a.account_type,
+            a.currency,
+            a.account_number_last4,
+            COUNT(t.id) as transaction_count,
+            COALESCE(
+                SUM(CASE
+                    WHEN t.transaction_type = 'credit' THEN t.amount
+                    ELSE -t.amount
+                END),
+                0
+            ) as balance,
+            MAX(t.transaction_date) as last_transaction_date
+        FROM accounts a
+        LEFT JOIN transactions t ON a.id = t.account_id
+        WHERE a.is_active = true
+    """
 
-        params = {}
-        if start_date or end_date:
-            query += " WHERE 1=1"
-            if start_date:
-                query += " AND t.transaction_date >= :start_date"
-                params["start_date"] = start_date
-            if end_date:
-                query += " AND t.transaction_date <= :end_date"
-                params["end_date"] = end_date
+    params = []
+    if date_range:
+        try:
+            start_date, end_date = date_range.split(',')
+            query += " AND t.transaction_date BETWEEN $1 AND $2"
+            params.extend([start_date.strip(), end_date.strip()])
+        except ValueError:
+            logger.warning(f"Invalid date_range format: {date_range}")
 
-        query += """
-            GROUP BY a.id, a.account_type, a.institution_name, a.account_name,
-                     a.account_number_last4, a.currency, a.is_active, a.created_at
-            ORDER BY a.account_name
-        """
+    query += """
+        GROUP BY a.id, a.account_name, a.institution_name, a.account_type,
+                 a.currency, a.account_number_last4
+        ORDER BY a.institution_name, a.account_name
+    """
 
-        result = session.execute(text(query), params)
-        rows = result.fetchall()
+    results = await db.execute_query(query, *params)
 
-        accounts = []
-        for row in rows:
-            accounts.append({
-                "id": str(row.id),
-                "account_type": row.account_type,
-                "institution_name": row.institution_name,
-                "account_name": row.account_name,
-                "account_number_last4": row.account_number_last4,
-                "currency": row.currency,
-                "is_active": row.is_active,
-                "created_at": row.created_at.isoformat() if row.created_at else None,
-                "statistics": {
-                    "transaction_count": row.transaction_count,
-                    "total_debits": float(row.total_debits) if isinstance(row.total_debits, Decimal) else row.total_debits,
-                    "total_credits": float(row.total_credits) if isinstance(row.total_credits, Decimal) else row.total_credits,
-                    "earliest_transaction": row.earliest_transaction.isoformat() if row.earliest_transaction else None,
-                    "latest_transaction": row.latest_transaction.isoformat() if row.latest_transaction else None
-                }
-            })
+    accounts = []
+    for row in results:
+        accounts.append({
+            "id": str(row['id']),
+            "account_name": row['account_name'],
+            "institution_name": row['institution_name'],
+            "account_type": row['account_type'],
+            "currency": row['currency'],
+            "account_number_last4": row['account_number_last4'],
+            "transaction_count": row['transaction_count'],
+            "balance": float(row['balance']),
+            "last_transaction_date": row['last_transaction_date'].isoformat() if row['last_transaction_date'] else None
+        })
 
-        return {
-            "accounts": accounts,
-            "total_accounts": len(accounts),
-            "active_accounts": sum(1 for a in accounts if a["is_active"])
+    return {
+        "accounts": accounts,
+        "total_accounts": len(accounts),
+        "total_balance": sum(acc['balance'] for acc in accounts)
+    }
+
+
+async def get_account_details(db, account_id: str):
+    """Get detailed information about a specific account.
+
+    Args:
+        db: Database connection
+        account_id: UUID of the account
+
+    Returns:
+        Account details with transaction statistics
+    """
+    query = """
+        SELECT
+            a.*,
+            COUNT(t.id) as total_transactions,
+            COALESCE(
+                SUM(CASE
+                    WHEN t.transaction_type = 'credit' THEN t.amount
+                    ELSE -t.amount
+                END),
+                0
+            ) as current_balance,
+            MIN(t.transaction_date) as first_transaction_date,
+            MAX(t.transaction_date) as last_transaction_date,
+            COALESCE(
+                SUM(CASE WHEN t.transaction_type = 'credit' THEN t.amount ELSE 0 END),
+                0
+            ) as total_credits,
+            COALESCE(
+                SUM(CASE WHEN t.transaction_type = 'debit' THEN t.amount ELSE 0 END),
+                0
+            ) as total_debits
+        FROM accounts a
+        LEFT JOIN transactions t ON a.id = t.account_id
+        WHERE a.id = $1
+        GROUP BY a.id
+    """
+
+    result = await db.execute_one(query, account_id)
+
+    if not result:
+        raise ValueError(f"Account {account_id} not found")
+
+    return {
+        "id": str(result['id']),
+        "account_name": result['account_name'],
+        "institution_name": result['institution_name'],
+        "account_type": result['account_type'],
+        "currency": result['currency'],
+        "account_number_last4": result['account_number_last4'],
+        "is_active": result['is_active'],
+        "notes": result['notes'],
+        "created_at": result['created_at'].isoformat(),
+        "updated_at": result['updated_at'].isoformat(),
+        "statistics": {
+            "total_transactions": result['total_transactions'],
+            "current_balance": float(result['current_balance']),
+            "first_transaction_date": result['first_transaction_date'].isoformat() if result['first_transaction_date'] else None,
+            "last_transaction_date": result['last_transaction_date'].isoformat() if result['last_transaction_date'] else None,
+            "total_credits": float(result['total_credits']),
+            "total_debits": float(result['total_debits'])
         }
+    }
