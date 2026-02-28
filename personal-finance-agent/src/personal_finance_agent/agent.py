@@ -10,16 +10,18 @@ from a2a.server.tasks import InMemoryTaskStore, TaskUpdater
 from starlette.routing import Route
 from a2a.types import AgentCapabilities, AgentCard, AgentSkill, TaskState, TextPart
 from a2a.utils import new_agent_text_message, new_task
-from openinference.instrumentation.langchain import LangChainInstrumentor
 from langchain_core.messages import HumanMessage
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from personal_finance_agent.graph import get_graph, get_mcpclient, get_mcp_server_names
 from personal_finance_agent.config import Configuration
+from personal_finance_agent.observability import setup_observability, create_tracing_middleware
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-LangChainInstrumentor().instrument()
+# Initialize observability first (includes LangChain instrumentation)
+setup_observability()
 config = Configuration()
 
 def get_agent_card(host: str, port: int) -> AgentCard:
@@ -196,5 +198,8 @@ def run():
         methods=['GET'],
         name='agent_card_new',
     ))
+
+    # Add tracing middleware to create root spans
+    app.add_middleware(BaseHTTPMiddleware, dispatch=create_tracing_middleware())
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
