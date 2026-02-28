@@ -31,55 +31,32 @@ A personal finance management system that imports financial data from CSV files,
 
 ### Prerequisites
 
-- **minikube** (with podman driver)
+- **k3d** (Kubernetes in Docker)
 - **kubectl**
-- **podman**
+- **podman** or **docker**
 - **Python 3.11+**
 - **Node.js 18+**
 
-### 1. Setup Infrastructure
+### 1. Build and Deploy to Kubernetes
 
 ```bash
-# Start minikube
-minikube start --cpus=4 --memory=8192 --driver=podman --container-runtime=cri-o
+# Build container images and import into k3d
+./scripts/build-k3d.sh
 
-# Enable MetalLB
-./scripts/enable-metallb.sh
-
-# Deploy PostgreSQL
-./scripts/deploy-database.sh
-
-# Run migrations
-./scripts/run-migrations.sh
+# Deploy all services to Kubernetes
+./scripts/deploy-k3d.sh
 ```
 
-### 2. Deploy Services
+This will deploy:
+- PostgreSQL database
+- ETL Service (CSV import)
+- Frontend (React dashboard)
+- MCP Server (in Kubernetes)
 
-```bash
-# Build and deploy all services
-./scripts/build-all.sh
-./scripts/load-images.sh
+### 2. Access Services
 
-# Deploy to Kubernetes
-kubectl apply -f k8s/base/
-```
-
-### 3. Start MCP Server
-
-```bash
-# Start the MCP server (for Claude Code integration)
-./scripts/start-mcp-server.sh
-```
-
-This will:
-- Start PostgreSQL port-forward (localhost:5432)
-- Start MCP server (localhost:8081)
-- Show health status
-
-### 4. Access Services
-
-- **Web Dashboard**: `http://192.168.49.100` (via MetalLB LoadBalancer)
-- **MCP Server**: `http://localhost:8081` (local Python server)
+- **Web Dashboard**: `http://finance.local` (via Gateway API)
+- **MCP Server**: `http://finance-mcp.localtest.me:8080/mcp` (for Claude Code)
 - **ETL Service**: Internal to cluster
 
 ## 💬 Using with Claude Code
@@ -88,7 +65,7 @@ The MCP server allows you to query your financial data using natural language.
 
 ### Setup
 
-The MCP server is already configured in `.mcp.json`. Just restart Claude Code after starting the server.
+The MCP server runs in Kubernetes and is accessible at `http://finance-mcp.localtest.me:8080/mcp`. Configure it in your Claude Code settings to connect.
 
 ### Example Queries
 
@@ -119,8 +96,6 @@ Ask Claude Code:
 7. **get_cash_flow** - Income vs expenses over time
 8. **get_budget_status** - Budget tracking
 
-See [QUICKSTART-MCP.md](QUICKSTART-MCP.md) for detailed MCP setup and [MCP-WORKING.md](MCP-WORKING.md) for current status.
-
 ## 📁 Project Structure
 
 ```
@@ -144,43 +119,27 @@ personal-finance-dashboard/
 
 ## 🛠️ Management Commands
 
-### MCP Server
-
-```bash
-# Start MCP server (recommended)
-./scripts/start-mcp-server.sh
-
-# Stop MCP server
-./scripts/stop-mcp-server.sh
-
-# View logs
-tail -f /tmp/mcp-server-local.log
-```
-
 ### Kubernetes
 
 ```bash
 # Check all services
-kubectl get all
+kubectl get all -n personal-finance
 
 # View logs
-kubectl logs -f -l app=postgres
-kubectl logs -f -l app=etl-service
-kubectl logs -f -l app=frontend
+kubectl logs -f -l app=postgres -n personal-finance
+kubectl logs -f -l app=etl-service -n personal-finance
+kubectl logs -f -l app=frontend -n personal-finance
 
 # Restart a service
-kubectl rollout restart deployment/etl-service
+kubectl rollout restart deployment/etl-service -n personal-finance
 ```
 
 ### Database
 
 ```bash
 # Access PostgreSQL (via port-forward)
-kubectl port-forward svc/postgres 5432:5432 &
+kubectl port-forward svc/postgres 5432:5432 -n personal-finance &
 psql postgresql://finance_user:finance_dev_password_change_me@localhost:5432/finance_db
-
-# Run migrations
-./scripts/run-migrations.sh
 ```
 
 ## 📊 Current Data
@@ -222,10 +181,6 @@ python main.py
 ## 📖 Documentation
 
 - **[spec.md](spec.md)** - Complete technical specification
-- **[QUICKSTART-MCP.md](QUICKSTART-MCP.md)** - MCP server setup guide
-- **[MCP-WORKING.md](MCP-WORKING.md)** - Current MCP server status
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Kubernetes deployment guide
-- **[MINIKUBE-ACCESS.md](MINIKUBE-ACCESS.md)** - Network access configuration
 - **[backend/mcp-server/README.md](backend/mcp-server/README.md)** - MCP server details
 
 ## 🔒 Security Notes
@@ -233,8 +188,8 @@ python main.py
 This is configured for **local development only**:
 
 - Default passwords in use (change for production)
-- No authentication on MCP server
-- Services exposed via MetalLB on local network
+- No authentication on local MCP server
+- Services exposed via Gateway API
 - Database credentials in Kubernetes secrets
 
 ## 🎯 Roadmap
@@ -255,12 +210,12 @@ Personal project - Not licensed for distribution
 - **Backend**: Python (FastAPI), Node.js (Express)
 - **Frontend**: React, TypeScript, Material-UI
 - **Database**: PostgreSQL 15+
-- **Infrastructure**: Kubernetes (minikube), Podman, MetalLB
+- **Infrastructure**: Kubernetes (k3d), Podman/Docker
 - **MCP**: Model Context Protocol (SSE transport)
 - **AI**: Claude Code integration
 
 ---
 
 **Status**: ✅ Operational
-**Last Updated**: 2026-02-15
-**Version**: 0.2.0
+**Last Updated**: 2026-02-27
+**Version**: 0.3.0

@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "personal-finance": {
-      "url": "http://localhost:8081/sse",
-      "type": "sse",
-      "env": {}
-    }
-  }
-}

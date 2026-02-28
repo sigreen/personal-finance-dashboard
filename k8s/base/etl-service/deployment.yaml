@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: etl-service
-  namespace: default
 spec:
   replicas: 1
   selector:
@@ -16,7 +15,7 @@ spec:
       containers:
       - name: etl-service
         image: localhost/finance-etl:latest
-        imagePullPolicy: Never
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
           name: http

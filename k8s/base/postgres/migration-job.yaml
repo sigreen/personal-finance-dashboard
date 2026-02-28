@@ -2,7 +2,6 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: postgres-migration
-  namespace: default
 spec:
   template:
     metadata:
@@ -13,7 +12,7 @@ spec:
       containers:
       - name: migration
         image: localhost/finance-db-migration:latest
-        imagePullPolicy: Never  # Use local image loaded into minikube
+        imagePullPolicy: Always  # Use local image loaded into minikube
         env:
         - name: DB_HOST
           value: "postgres"

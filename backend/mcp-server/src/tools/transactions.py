@@ -101,9 +101,17 @@ async def get_transactions(
 
     # Search query
     if search_query:
+        # Search in description, original_description, merchant, and notes
+        # Also strip spaces from search term to match variations like "HOMEDEPOT" vs "HOME DEPOT"
         param_count += 1
-        query += f" AND (t.description ILIKE ${param_count} OR t.merchant ILIKE ${param_count} OR t.notes ILIKE ${param_count})"
+        search_param = param_count
+        param_count += 1
+        search_no_space_param = param_count
+
+        query += f" AND (t.description ILIKE ${search_param} OR t.original_description ILIKE ${search_param} OR t.merchant ILIKE ${search_param} OR t.notes ILIKE ${search_param} OR REPLACE(t.description, ' ', '') ILIKE ${search_no_space_param} OR REPLACE(t.original_description, ' ', '') ILIKE ${search_no_space_param})"
         params.append(f'%{search_query}%')
+        # Also search with spaces removed for variations like "Home Depot" matching "HOMEDEPOT"
+        params.append(f'%{search_query.replace(" ", "")}%')
 
     # Order and pagination
     query += " ORDER BY t.transaction_date DESC, t.created_at DESC"

@@ -25,7 +25,7 @@ export default function ImportConfigForm({
   const [dateColumn, setDateColumn] = useState('');
   const [descriptionColumn, setDescriptionColumn] = useState('');
   const [amountColumn, setAmountColumn] = useState('');
-  const [dateFormat, setDateFormat] = useState('%m/%d/%Y');
+  const [dateFormat, setDateFormat] = useState('');
   const [negativeMeansDebit, setNegativeMeansDebit] = useState(true);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -39,7 +39,7 @@ export default function ImportConfigForm({
     onSubmit({
       account_id: accountId,
       column_mapping: Object.keys(columnMapping).length > 0 ? columnMapping : undefined,
-      date_format: dateFormat,
+      date_format: dateFormat || undefined,
       negative_means_debit: negativeMeansDebit,
     });
   };
@@ -148,7 +148,9 @@ export default function ImportConfigForm({
               onChange={(e) => setDateFormat(e.target.value)}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="%m/%d/%Y">MM/DD/YYYY (US format)</option>
+              <option value="">Auto-detect (recommended)</option>
+              <option value="%m/%d/%Y">MM/DD/YYYY (US format, 4-digit year)</option>
+              <option value="%m/%d/%y">MM/DD/YY (US format, 2-digit year)</option>
               <option value="%d/%m/%Y">DD/MM/YYYY (European format)</option>
               <option value="%Y-%m-%d">YYYY-MM-DD (ISO format)</option>
             </select>

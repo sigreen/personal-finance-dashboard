@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
-  namespace: default
   labels:
     app: frontend
 spec:
@@ -18,7 +17,7 @@ spec:
       containers:
       - name: frontend
         image: localhost/finance-frontend:latest
-        imagePullPolicy: Never
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
           name: http

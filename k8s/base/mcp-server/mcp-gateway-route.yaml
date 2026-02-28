@@ -1,0 +1,21 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: personal-finance-mcp-gateway
+  namespace: personal-finance
+spec:
+  hostnames:
+  - finance-mcp-gateway.localtest.me
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: http
+    namespace: kagenti-system
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: personal-finance-mcp-mcp
+      port: 8000

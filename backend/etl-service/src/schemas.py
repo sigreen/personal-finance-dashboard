@@ -109,6 +109,6 @@ class CSVPreview(BaseModel):
 class ImportRequest(BaseModel):
     account_id: UUID4
     column_mapping: Optional[Dict[str, str]] = None
-    date_format: Optional[str] = "MM/DD/YYYY"
+    date_format: Optional[str] = None  # Auto-detect if not provided
     has_header: bool = True
     negative_means_debit: bool = True  # True for Chase (negative=debit), False for Amex (positive=debit)

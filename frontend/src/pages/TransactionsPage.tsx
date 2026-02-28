@@ -135,7 +135,7 @@ export default function TransactionsPage() {
               transactions.map((transaction) => (
                 <tr key={transaction.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(transaction.transaction_date).toLocaleDateString()}
+                    {transaction.transaction_date}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {getAccountName(transaction.account_id)}

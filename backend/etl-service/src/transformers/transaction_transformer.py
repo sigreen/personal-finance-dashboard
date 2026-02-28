@@ -11,6 +11,56 @@ class TransactionTransformer:
     """Transform and normalize transaction data."""
 
     @staticmethod
+    def detect_date_format(dates_sample: pd.Series) -> Optional[str]:
+        """Auto-detect date format from sample data.
+
+        Args:
+            dates_sample: Series of date strings to analyze
+
+        Returns:
+            Best matching date format string, or None for flexible parsing
+        """
+        # Common date formats to try
+        formats = [
+            '%m/%d/%Y',  # 12/30/2025
+            '%m/%d/%y',  # 12/30/25
+            '%Y-%m-%d',  # 2025-12-30
+            '%d/%m/%Y',  # 30/12/2025
+            '%d/%m/%y',  # 30/12/25
+            '%Y/%m/%d',  # 2025/12/30
+            '%m-%d-%Y',  # 12-30-2025
+            '%m-%d-%y',  # 12-30-25
+        ]
+
+        # Take non-null sample
+        sample = dates_sample.dropna().head(10)
+        if len(sample) == 0:
+            return None
+
+        # Try each format and count successes
+        format_scores = {}
+        for fmt in formats:
+            success_count = 0
+            for date_val in sample:
+                try:
+                    datetime.strptime(str(date_val), fmt)
+                    success_count += 1
+                except:
+                    pass
+            if success_count > 0:
+                format_scores[fmt] = success_count
+
+        # Return format with highest success rate
+        if format_scores:
+            best_format = max(format_scores, key=format_scores.get)
+            # Only use if it works for most samples
+            if format_scores[best_format] >= len(sample) * 0.8:
+                return best_format
+
+        # Fall back to None (use flexible dateutil parser)
+        return None
+
+    @staticmethod
     def parse_date(
         date_value: str,
         date_format: Optional[str] = None
@@ -24,7 +74,10 @@ class TransactionTransformer:
                 return datetime.strptime(str(date_value), date_format)
             else:
                 # Use dateutil parser for flexible parsing
-                return date_parser.parse(str(date_value))
+                # Force timezone-naive to prevent date shifting
+                parsed = date_parser.parse(str(date_value), ignoretz=True)
+                # Ensure we return a naive datetime (strip any timezone info)
+                return parsed.replace(tzinfo=None) if parsed else None
         except Exception:
             return None
 
@@ -120,6 +173,13 @@ class TransactionTransformer:
         for col in required:
             if col not in df_transformed.columns:
                 raise ValueError(f"Required column '{col}' not found after mapping")
+
+        # Auto-detect date format if not provided
+        if not date_format:
+            detected_format = self.detect_date_format(df_transformed['transaction_date'])
+            if detected_format:
+                date_format = detected_format
+                print(f"DEBUG: Auto-detected date format: {date_format}")
 
         # Parse dates
         df_transformed['transaction_date'] = df_transformed['transaction_date'].apply(

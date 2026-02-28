@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: personal-finance
+
+resources:
+  - namespace.yaml
+  - ../../base/postgres
+  - ../../base/etl-service
+  - ../../base/frontend
+  - ../../base/mcp-server
+
+commonLabels:
+  app.kubernetes.io/part-of: personal-finance-dashboard
+
+# Update image references - images imported directly to k3d
+images:
+  - name: localhost/finance-frontend:latest
+    newName: localhost:5555/finance-frontend
+    newTag: latest
+  - name: localhost/finance-etl:latest
+    newName: localhost:5555/finance-etl
+    newTag: latest
+  - name: finance-mcp:latest
+    newName: localhost:5555/finance-mcp
+    newTag: latest
+
+# Patch to set imagePullPolicy to IfNotPresent for imported images
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
+    target:
+      kind: Deployment
+      name: frontend
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
+    target:
+      kind: Deployment
+      name: etl-service
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
+    target:
+      kind: Deployment
+      name: mcp-server

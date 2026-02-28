@@ -212,16 +212,18 @@ async def process_import(
         # Parse CSV
         parser = CSVParser(str(file_path))
         df = parser.read_csv()
+        print(f"DEBUG: Parsed CSV - {len(df)} rows, columns: {df.columns.tolist()}")
 
         # Default column mapping if not provided
         if not import_request.column_mapping:
             # Try to auto-detect common column names
+            # Strip whitespace from headers to handle cases like " Description"
             column_mapping = {}
-            headers_lower = {h.lower(): h for h in df.columns}
+            headers_lower = {h.strip().lower(): h for h in df.columns}
 
             # Map common variations
             date_cols = ['date', 'transaction date', 'trans date', 'posting date']
-            desc_cols = ['description', 'desc', 'memo', 'transaction']
+            desc_cols = ['description', 'desc', 'memo', 'transaction', 'merchant name', 'merchant']
             amount_cols = ['amount', 'debit', 'credit']
 
             for col in date_cols:
@@ -242,6 +244,10 @@ async def process_import(
             # Invert mapping (we need source -> target)
             import_request.column_mapping = {v: k for k, v in column_mapping.items()}
 
+        print(f"DEBUG: Column mapping: {import_request.column_mapping}")
+        print(f"DEBUG: Date format: {import_request.date_format}")
+        print(f"DEBUG: Negative means debit: {import_request.negative_means_debit}")
+
         # Transform data
         transformer = TransactionTransformer()
         df_transformed = transformer.transform_dataframe(
@@ -250,6 +256,7 @@ async def process_import(
             import_request.date_format,
             import_request.negative_means_debit
         )
+        print(f"DEBUG: After transformation - {len(df_transformed)} rows")
 
         # Get existing transactions for duplicate detection
         if not df_transformed.empty:

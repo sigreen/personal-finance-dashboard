@@ -1,0 +1,11 @@
+apiVersion: mcp.kagenti.com/v1alpha1
+kind: MCPServerRegistration
+metadata:
+  name: personal-finance-mcp
+  namespace: personal-finance
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: mcp-server-route
+  toolPrefix: "finance_"

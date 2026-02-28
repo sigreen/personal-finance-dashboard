@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getAccounts } from '../services/api';
 import type { Account } from '../types';
 import CreateAccountModal from '../components/CreateAccountModal';
+import BankIcon from '../components/BankIcon';
 
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -84,15 +85,18 @@ export default function AccountsPage() {
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {accounts.map((account) => (
           <div key={account.id} className="bg-white shadow rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
-                {account.account_name}
-              </h3>
-              {account.is_active && (
-                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                  Active
-                </span>
-              )}
+            <div className="flex items-center gap-4 mb-4">
+              <BankIcon institutionName={account.institution_name} size="lg" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-medium text-gray-900 truncate">
+                  {account.account_name}
+                </h3>
+                {account.is_active && (
+                  <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                    Active
+                  </span>
+                )}
+              </div>
             </div>
 
             <dl className="space-y-2">

@@ -24,7 +24,7 @@ export default function RecentTransactions({ transactions }: RecentTransactionsP
                   {transaction.merchant || transaction.description}
                 </p>
                 <p className="text-sm text-gray-500 truncate">
-                  {new Date(transaction.transaction_date).toLocaleDateString()}
+                  {transaction.transaction_date}
                 </p>
               </div>
               <div className="flex-shrink-0">

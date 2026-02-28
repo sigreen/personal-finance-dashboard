@@ -3,6 +3,7 @@ import { getAccounts, getTransactions } from '../services/api';
 import type { Account, Transaction } from '../types';
 import AccountSummaryCard from '../components/AccountSummaryCard';
 import RecentTransactions from '../components/RecentTransactions';
+import BankIcon from '../components/BankIcon';
 
 export default function Dashboard() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -128,7 +129,8 @@ export default function Dashboard() {
             </h3>
             <div className="space-y-4">
               {creditCardSpending.map(({ account, total, count }) => (
-                <div key={account.id} className="flex items-center justify-between">
+                <div key={account.id} className="flex items-center gap-3">
+                  <BankIcon institutionName={account.institution_name} size="sm" />
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <div>
