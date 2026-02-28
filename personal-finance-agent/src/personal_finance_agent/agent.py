@@ -15,7 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from personal_finance_agent.graph import get_graph, get_mcpclient, get_mcp_server_names
 from personal_finance_agent.config import Configuration
-from personal_finance_agent.observability import setup_observability, create_tracing_middleware
+from personal_finance_agent.observability import setup_observability, create_tracing_middleware, get_root_span, set_span_output
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -161,7 +161,13 @@ class GenericExecutor(AgentExecutor):
                 logger.warning("No final answer received from graph execution")
                 await event_emitter.emit_event("Task completed but no final answer was generated.", final=True)
             else:
-                await event_emitter.emit_event(str(final_answer), final=True)
+                final_answer_str = str(final_answer)
+                # Set output on root span for Phoenix observability
+                root_span = get_root_span()
+                if root_span and root_span.is_recording():
+                    set_span_output(root_span, final_answer_str)
+                    logger.info(f"Set output on root span: {final_answer_str[:100]}...")
+                await event_emitter.emit_event(final_answer_str, final=True)
         except Exception as e:
             logger.error(f'Graph execution error: {e}')
             await event_emitter.emit_event(f"Error: Failed to process request. {str(e)}", failed=True)
