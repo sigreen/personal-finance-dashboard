@@ -2,6 +2,8 @@
 from typing import Optional
 import logging
 
+from ..utils import parse_date
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,9 +42,12 @@ async def get_account_summary(db, date_range: Optional[str] = None):
     params = []
     if date_range:
         try:
-            start_date, end_date = date_range.split(',')
-            query += " AND t.transaction_date BETWEEN $1 AND $2"
-            params.extend([start_date.strip(), end_date.strip()])
+            start_str, end_str = date_range.split(',')
+            start_date = parse_date(start_str.strip())
+            end_date = parse_date(end_str.strip())
+            if start_date and end_date:
+                query += " AND t.transaction_date BETWEEN $1 AND $2"
+                params.extend([start_date, end_date])
         except ValueError:
             logger.warning(f"Invalid date_range format: {date_range}")
 

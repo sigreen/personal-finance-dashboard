@@ -7,7 +7,7 @@ import uuid
 import shutil
 from pathlib import Path
 
-from ..database import get_db, Account, Transaction, ImportLog, ImportStatus
+from ..database import get_db, Account, Transaction, ImportLog, ImportStatus, Category
 from ..schemas import (
     AccountCreate,
     AccountResponse,
@@ -329,3 +329,30 @@ async def list_imports(
         query = query.filter(ImportLog.account_id == account_id)
     query = query.order_by(ImportLog.created_at.desc()).limit(limit)
     return query.all()
+
+
+@router.get("/categories")
+async def get_categories(db: Session = Depends(get_db)):
+    """Get all categories."""
+    categories = db.query(Category).filter(Category.is_active == True).order_by(Category.name).all()
+    return categories
+
+
+@router.patch("/transactions/{transaction_id}/category")
+async def update_transaction_category(
+    transaction_id: uuid.UUID,
+    category_id: Optional[uuid.UUID] = None,
+    db: Session = Depends(get_db)
+):
+    """Update the category for a transaction."""
+    # Find the transaction
+    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    # Update the category
+    transaction.category_id = category_id
+    db.commit()
+    db.refresh(transaction)
+
+    return {"message": "Category updated successfully", "transaction_id": str(transaction_id)}

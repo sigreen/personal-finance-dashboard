@@ -2,6 +2,8 @@
 from typing import Optional
 import logging
 
+from ..utils import parse_date
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,14 +56,18 @@ async def get_spending_by_category(
     param_count = 0
 
     if start_date:
-        param_count += 1
-        query += f" AND t.transaction_date >= ${param_count}"
-        params.append(start_date)
+        parsed_start = parse_date(start_date)
+        if parsed_start:
+            param_count += 1
+            query += f" AND t.transaction_date >= ${param_count}"
+            params.append(parsed_start)
 
     if end_date:
-        param_count += 1
-        query += f" AND t.transaction_date <= ${param_count}"
-        params.append(end_date)
+        parsed_end = parse_date(end_date)
+        if parsed_end:
+            param_count += 1
+            query += f" AND t.transaction_date <= ${param_count}"
+            params.append(parsed_end)
 
     if account_ids:
         account_id_list = [aid.strip() for aid in account_ids.split(',')]
@@ -152,14 +158,18 @@ async def get_merchant_spending(
     param_count = 0
 
     if start_date:
-        param_count += 1
-        query += f" AND transaction_date >= ${param_count}"
-        params.append(start_date)
+        parsed_start = parse_date(start_date)
+        if parsed_start:
+            param_count += 1
+            query += f" AND transaction_date >= ${param_count}"
+            params.append(parsed_start)
 
     if end_date:
-        param_count += 1
-        query += f" AND transaction_date <= ${param_count}"
-        params.append(end_date)
+        parsed_end = parse_date(end_date)
+        if parsed_end:
+            param_count += 1
+            query += f" AND transaction_date <= ${param_count}"
+            params.append(parsed_end)
 
     query += """
         GROUP BY merchant
@@ -216,6 +226,13 @@ async def get_cash_flow(
 
     trunc = trunc_map.get(granularity, 'month')
 
+    # Parse dates
+    parsed_start = parse_date(start_date)
+    parsed_end = parse_date(end_date)
+
+    if not parsed_start or not parsed_end:
+        return {"periods": [], "summary": {"granularity": granularity, "total_income": 0, "total_expenses": 0, "net_flow": 0, "period_count": 0}}
+
     query = f"""
         SELECT
             DATE_TRUNC('{trunc}', transaction_date) as period,
@@ -229,7 +246,7 @@ async def get_cash_flow(
         ORDER BY period
     """
 
-    results = await db.execute_query(query, start_date, end_date)
+    results = await db.execute_query(query, parsed_start, parsed_end)
 
     periods = []
     total_income = 0

@@ -87,6 +87,16 @@ export const getCategories = async (): Promise<Category[]> => {
   return response.data;
 };
 
+export const updateTransactionCategory = async (
+  transactionId: string,
+  categoryId: string | null
+): Promise<{ message: string; transaction_id: string }> => {
+  const response = await api.patch(`/transactions/${transactionId}/category`, null, {
+    params: { category_id: categoryId }
+  });
+  return response.data;
+};
+
 // Health check
 export const healthCheck = async (): Promise<{ status: string; service: string }> => {
   const response = await api.get('/health');

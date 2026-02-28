@@ -2,6 +2,8 @@
 from typing import Optional, List
 import logging
 
+from ..utils import parse_date
+
 logger = logging.getLogger(__name__)
 
 
@@ -73,14 +75,18 @@ async def get_transactions(
 
     # Filter by date range
     if start_date:
-        param_count += 1
-        query += f" AND t.transaction_date >= ${param_count}"
-        params.append(start_date)
+        parsed_start = parse_date(start_date)
+        if parsed_start:
+            param_count += 1
+            query += f" AND t.transaction_date >= ${param_count}"
+            params.append(parsed_start)
 
     if end_date:
-        param_count += 1
-        query += f" AND t.transaction_date <= ${param_count}"
-        params.append(end_date)
+        parsed_end = parse_date(end_date)
+        if parsed_end:
+            param_count += 1
+            query += f" AND t.transaction_date <= ${param_count}"
+            params.append(parsed_end)
 
     # Filter by category
     if category:

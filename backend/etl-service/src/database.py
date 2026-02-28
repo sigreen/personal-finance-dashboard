@@ -1,6 +1,6 @@
 """Database connection and models."""
 
-from sqlalchemy import create_engine, Column, String, Numeric, DateTime, Boolean, Date, Text, Enum, Integer
+from sqlalchemy import create_engine, Column, String, Numeric, DateTime, Boolean, Date, Text, Enum, Integer, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -28,6 +28,12 @@ class AccountType(str, enum.Enum):
 class TransactionType(str, enum.Enum):
     debit = "debit"
     credit = "credit"
+
+
+class CategoryType(str, enum.Enum):
+    income = "income"
+    expense = "expense"
+    transfer = "transfer"
 
 
 class ImportStatus(str, enum.Enum):
@@ -86,6 +92,20 @@ class ImportLog(Base):
     error_details = Column(JSONB)
     started_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     completed_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(255), nullable=False, unique=True)
+    parent_category_id = Column(UUID(as_uuid=True), ForeignKey('categories.id'))
+    category_type = Column(String(50), nullable=False)  # Using String to match DB
+    icon = Column(String(50))
+    color = Column(String(7))
+    description = Column(Text)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
 

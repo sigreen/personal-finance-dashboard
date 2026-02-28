@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getTransactions, getAccounts } from '../services/api';
-import type { Transaction, Account } from '../types';
+import { getTransactions, getAccounts, getCategories, updateTransactionCategory } from '../services/api';
+import type { Transaction, Account, Category } from '../types';
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -11,6 +11,8 @@ export default function TransactionsPage() {
   const [page, setPage] = useState(0);
   const [pageSize] = useState(100);
   const [hasMore, setHasMore] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [updatingCategory, setUpdatingCategory] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -22,6 +24,18 @@ export default function TransactionsPage() {
       }
     };
     fetchAccounts();
+  }, []);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await getCategories();
+        setCategories(data);
+      } catch (err) {
+        console.error('Failed to fetch categories:', err);
+      }
+    };
+    fetchCategories();
   }, []);
 
   // Reset to first page when account filter changes
@@ -56,6 +70,25 @@ export default function TransactionsPage() {
   const getAccountName = (accountId: string) => {
     const account = accounts.find((a) => a.id === accountId);
     return account ? account.account_name : 'Unknown';
+  };
+
+  const handleCategoryChange = async (transactionId: string, categoryId: string) => {
+    try {
+      setUpdatingCategory(transactionId);
+      await updateTransactionCategory(transactionId, categoryId || null);
+
+      // Update local state
+      setTransactions(prev =>
+        prev.map(t =>
+          t.id === transactionId ? { ...t, category_id: categoryId || undefined } : t
+        )
+      );
+    } catch (err) {
+      console.error('Failed to update category:', err);
+      alert('Failed to update category. Please try again.');
+    } finally {
+      setUpdatingCategory(null);
+    }
   };
 
   if (loading) {
@@ -122,12 +155,15 @@ export default function TransactionsPage() {
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Type
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Category
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {transactions.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                   No transactions found
                 </td>
               </tr>
@@ -161,6 +197,21 @@ export default function TransactionsPage() {
                     >
                       {transaction.transaction_type}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <select
+                      value={transaction.category_id || ''}
+                      onChange={(e) => handleCategoryChange(transaction.id, e.target.value)}
+                      disabled={updatingCategory === transaction.id}
+                      className="block w-full px-2 py-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm disabled:opacity-50"
+                    >
+                      <option value="">-- Select --</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.icon} {category.name}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                 </tr>
               ))

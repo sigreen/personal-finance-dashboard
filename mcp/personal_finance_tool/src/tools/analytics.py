@@ -1,20 +1,10 @@
 """Analytics and aggregation MCP tools."""
 from typing import Optional
 import logging
-from datetime import datetime, date
+
+from ..utils import parse_date
 
 logger = logging.getLogger(__name__)
-
-
-def parse_date(date_str: Optional[str]) -> Optional[date]:
-    """Parse date string to date object."""
-    if not date_str:
-        return None
-    try:
-        return datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        logger.warning(f"Invalid date format: {date_str}")
-        return None
 
 
 async def get_spending_by_category(
