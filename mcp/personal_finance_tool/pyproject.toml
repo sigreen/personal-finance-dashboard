@@ -1,0 +1,20 @@
+[project]
+name = "personal-finance-tool"
+version = "0.1.0"
+description = "MCP tool for personal finance data analysis, providing access to transactions, accounts, and spending analytics"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastmcp>=3.0.0",
+    "asyncpg>=0.29.0",
+    "python-dotenv>=1.0.0",
+    "psycopg2-binary>=2.9.9",
+]
+authors = [
+    { name = "Personal Finance Dashboard Team" }
+]
+license = { text = "Apache-2.0" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
