@@ -59,6 +59,39 @@ This will deploy:
 - **MCP Server**: `http://finance-mcp.localtest.me:8080/mcp` (for Claude Code)
 - **ETL Service**: Internal to cluster
 
+## 🤖 Import into Kagenti
+
+This repository is structured to be easily imported into [Kagenti](https://github.com/kagenti/kagenti), following the [agent-examples](https://github.com/kagenti/agent-examples) pattern.
+
+### Available Components
+
+**MCP Tool** - `mcp/personal_finance_tool/`
+- Provides access to personal finance data via MCP protocol
+- 8 financial analysis tools (accounts, transactions, analytics)
+- Python + FastMCP implementation
+
+**A2A Agent** - `a2a/personal_finance_agent/`
+- LangGraph-based agent for financial queries
+- Uses the Personal Finance MCP tool
+- Includes OpenTelemetry observability
+
+### Import via Kagenti UI
+
+1. **Import the MCP Tool**:
+   - In Kagenti UI, go to "Import New Tools"
+   - Repository URL: `https://github.com/sigreen/personal-finance-dashboard`
+   - Select: `mcp/personal_finance_tool`
+   - Configure database connection environment variables
+
+2. **Import the Agent**:
+   - In Kagenti UI, go to "Import New Agent"
+   - Repository URL: `https://github.com/sigreen/personal-finance-dashboard`
+   - Select: `a2a/personal_finance_agent`
+   - Choose LLM provider (OpenAI or Ollama)
+   - Set `MCP_URLS` to point to your deployed Personal Finance MCP tool
+
+The agent will automatically connect to the MCP tool and provide natural language access to your financial data.
+
 ## 💬 Using with Claude Code
 
 The MCP server allows you to query your financial data using natural language.
@@ -100,19 +133,30 @@ Ask Claude Code:
 
 ```
 personal-finance-dashboard/
+├── a2a/                        # Kagenti-compatible agents
+│   └── personal_finance_agent/ # LangGraph A2A agent for financial queries
+│       ├── src/
+│       ├── Dockerfile
+│       ├── pyproject.toml
+│       └── README.md
+├── mcp/                        # Kagenti-compatible MCP tools
+│   └── personal_finance_tool/  # MCP server for financial data access
+│       ├── src/
+│       │   ├── server.py
+│       │   ├── database/
+│       │   └── tools/
+│       ├── Dockerfile
+│       ├── pyproject.toml
+│       └── README.md
 ├── backend/
 │   ├── etl-service/           # CSV import service (FastAPI + pandas)
-│   └── mcp-server/            # MCP server (Python + SSE)
-│       ├── src/
-│       │   ├── server.py      # Main MCP server
-│       │   ├── database/      # Database connection
-│       │   └── tools/         # MCP tools (accounts, transactions, analytics)
-│       └── README.md
+│   └── mcp-server/            # MCP server (original location, aliased to mcp/)
 ├── frontend/                   # React dashboard
 ├── database/
 │   └── migrations/            # Database schema (PostgreSQL)
 ├── k8s/
 │   └── base/                  # Kubernetes manifests
+├── personal-finance-agent/    # Agent source (original location, aliased to a2a/)
 ├── scripts/                   # Deployment and utility scripts
 └── docs/
 ```
@@ -210,8 +254,8 @@ Personal project - Not licensed for distribution
 - **Backend**: Python (FastAPI), Node.js (Express)
 - **Frontend**: React, TypeScript, Material-UI
 - **Database**: PostgreSQL 15+
-- **Infrastructure**: Kubernetes (k3d), Podman/Docker
-- **MCP**: Model Context Protocol (SSE transport)
+- **Infrastructure**: Kubernetes (k3d), Podman/Docker, Istio Ambient, Kubernetes Gateway API
+- **MCP**: Model Context Protocol (SSE transport), FastMCP, Kagenti
 - **AI**: Claude Code integration
 
 ---
