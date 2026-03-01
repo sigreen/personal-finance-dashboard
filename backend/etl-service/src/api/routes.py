@@ -23,6 +23,7 @@ from ..config import settings
 from ..parsers.csv_parser import CSVParser
 from ..transformers.transaction_transformer import TransactionTransformer
 from ..loaders.database_loader import DatabaseLoader
+from ..auth import get_current_user
 
 router = APIRouter()
 
@@ -92,7 +93,8 @@ async def health_check():
 @router.post("/accounts", response_model=AccountResponse)
 async def create_account(
     account: AccountCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Create a new account."""
     db_account = Account(**account.model_dump())
@@ -105,7 +107,8 @@ async def create_account(
 @router.get("/accounts", response_model=List[AccountResponse])
 async def list_accounts(
     active_only: bool = Query(True),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """List all accounts."""
     query = db.query(Account)
@@ -117,7 +120,8 @@ async def list_accounts(
 @router.get("/accounts/{account_id}", response_model=AccountResponse)
 async def get_account(
     account_id: uuid.UUID,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Get account by ID."""
     account = db.query(Account).filter(Account.id == account_id).first()
@@ -131,7 +135,8 @@ async def get_transactions(
     account_id: Optional[uuid.UUID] = Query(None),
     limit: int = Query(100, le=1000),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Get transactions with optional filtering."""
     query = db.query(Transaction)
@@ -148,7 +153,8 @@ async def get_transactions(
 @router.post("/upload", response_model=UploadResponse)
 async def upload_csv(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Upload a CSV file."""
     # Validate file extension
@@ -200,7 +206,8 @@ async def upload_csv(
 @router.get("/upload/{import_id}/preview", response_model=CSVPreview)
 async def preview_csv(
     import_id: uuid.UUID,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Preview uploaded CSV file."""
     import_log = db.query(ImportLog).filter(ImportLog.id == import_id).first()
@@ -224,7 +231,8 @@ async def preview_csv(
 async def process_import(
     import_id: uuid.UUID,
     import_request: ImportRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Process CSV import."""
     import_log = db.query(ImportLog).filter(ImportLog.id == import_id).first()
@@ -354,7 +362,8 @@ async def process_import(
 @router.get("/import/{import_id}/status", response_model=ImportLogResponse)
 async def get_import_status(
     import_id: uuid.UUID,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Get import status."""
     import_log = db.query(ImportLog).filter(ImportLog.id == import_id).first()
@@ -367,7 +376,8 @@ async def get_import_status(
 async def list_imports(
     account_id: Optional[uuid.UUID] = None,
     limit: int = Query(50, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """List import history."""
     query = db.query(ImportLog)
@@ -378,7 +388,10 @@ async def list_imports(
 
 
 @router.get("/categories")
-async def get_categories(db: Session = Depends(get_db)):
+async def get_categories(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     """Get all categories."""
     categories = db.query(Category).filter(Category.is_active == True).order_by(Category.name).all()
     return categories
@@ -388,7 +401,8 @@ async def get_categories(db: Session = Depends(get_db)):
 async def update_transaction_category(
     transaction_id: uuid.UUID,
     category_id: Optional[uuid.UUID] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
 ):
     """Update the category for a transaction."""
     # Find the transaction

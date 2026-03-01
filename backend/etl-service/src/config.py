@@ -14,6 +14,16 @@ class Settings(BaseSettings):
     # CORS Configuration
     cors_allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://finance.localtest.me:8081"
 
+    # Keycloak OAuth2/OIDC Configuration
+    keycloak_server_url: str = "http://keycloak.localtest.me:8081"
+    keycloak_realm: str = "master"
+    keycloak_client_id: str = "finance-etl"
+
+    # Authentication
+    auth_enabled: bool = True
+    # Public endpoints that don't require authentication
+    public_endpoints: list[str] = ["/", "/api/health", "/docs", "/redoc", "/openapi.json"]
+
     # Database
     # SECURITY: No default credentials - must be provided via environment variable
     database_url: str
