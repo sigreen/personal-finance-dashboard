@@ -1,0 +1,132 @@
+---
+# Backup Storage PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-storage
+  namespace: personal-finance
+  labels:
+    app: postgres-backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: local-path
+---
+# Daily Backup CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: personal-finance
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+          containers:
+          - name: backup
+            image: postgres:15-alpine
+            env:
+            - name: PGHOST
+              value: "postgres.personal-finance.svc.cluster.local"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: BACKUP_RETENTION_DAYS
+              value: "30"
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              BACKUP_DIR="/backups"
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_FILE="${BACKUP_DIR}/finance_db_${TIMESTAMP}.dump"
+
+              echo "========================================="
+              echo "PostgreSQL Backup Starting"
+              echo "========================================="
+              echo "Timestamp: $(date)"
+              echo "Database: ${PGDATABASE}"
+              echo "Host: ${PGHOST}"
+              echo "========================================="
+
+              # Wait for database to be ready
+              until pg_isready -h ${PGHOST} -U ${PGUSER} -d ${PGDATABASE}; do
+                echo "Waiting for database to be ready..."
+                sleep 2
+              done
+
+              # Create backup with custom format and compression level 9
+              pg_dump -Fc -Z 9 -v -f "${BACKUP_FILE}" 2>&1 || {
+                echo "ERROR: Backup failed!"
+                exit 1
+              }
+
+              # Verify backup file exists and has content
+              if [ ! -s "${BACKUP_FILE}" ]; then
+                echo "ERROR: Backup file is empty or missing!"
+                exit 1
+              fi
+
+              BACKUP_SIZE=$(du -h "${BACKUP_FILE}" | cut -f1)
+              echo "========================================="
+              echo "Backup completed successfully"
+              echo "File: ${BACKUP_FILE}"
+              echo "Size: ${BACKUP_SIZE}"
+              echo "========================================="
+
+              # Clean up old backups (keep last N days)
+              echo "Cleaning up backups older than ${BACKUP_RETENTION_DAYS} days..."
+              find ${BACKUP_DIR} -name "finance_db_*.dump" -type f -mtime +${BACKUP_RETENTION_DAYS} -delete
+
+              # List current backups
+              echo "Current backups:"
+              ls -lh ${BACKUP_DIR}/finance_db_*.dump 2>/dev/null | awk '{print $9, $5, $6, $7, $8}' || echo "No previous backups found"
+
+              echo "========================================="
+              echo "Backup job completed at $(date)"
+              echo "========================================="
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "1Gi"
+                cpu: "1000m"
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: postgres-backup-storage

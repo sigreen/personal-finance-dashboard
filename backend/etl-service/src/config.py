@@ -11,8 +11,12 @@ class Settings(BaseSettings):
     app_name: str = "Finance ETL Service"
     debug: bool = False
 
+    # CORS Configuration
+    cors_allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://finance.localtest.me:8081"
+
     # Database
-    database_url: str = "postgresql://finance_user:finance_dev_password_change_me@postgres:5432/finance_db"
+    # SECURITY: No default credentials - must be provided via environment variable
+    database_url: str
 
     # File Upload
     upload_dir: str = "/tmp/uploads"

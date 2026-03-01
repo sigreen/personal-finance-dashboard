@@ -17,13 +17,15 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware - SECURITY FIX: Use configured origins instead of wildcard
+# Parse allowed origins from comma-separated string
+allowed_origins = [origin.strip() for origin in settings.cors_allowed_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify allowed origins
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],  # Explicit methods
+    allow_headers=["Content-Type", "Authorization", "Accept"],  # Explicit headers
 )
 
 # Include routers

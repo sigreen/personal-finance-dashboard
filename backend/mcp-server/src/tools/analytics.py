@@ -1,6 +1,8 @@
 """Analytics and aggregation MCP tools."""
 from typing import Optional
 import logging
+from datetime import datetime, timedelta
+import calendar
 
 from ..utils import parse_date
 
@@ -216,15 +218,19 @@ async def get_cash_flow(
     Returns:
         Cash flow data by time period
     """
-    # Determine date truncation based on granularity
-    trunc_map = {
+    # Validate and sanitize granularity input - SECURITY: Whitelist approach
+    # Only allow known safe values to prevent SQL injection
+    allowed_truncations = {
         'daily': 'day',
         'weekly': 'week',
         'monthly': 'month',
         'yearly': 'year'
     }
 
-    trunc = trunc_map.get(granularity, 'month')
+    if granularity not in allowed_truncations:
+        granularity = 'monthly'  # Default to monthly if invalid
+
+    trunc = allowed_truncations[granularity]
 
     # Parse dates
     parsed_start = parse_date(start_date)
@@ -233,6 +239,8 @@ async def get_cash_flow(
     if not parsed_start or not parsed_end:
         return {"periods": [], "summary": {"granularity": granularity, "total_income": 0, "total_expenses": 0, "net_flow": 0, "period_count": 0}}
 
+    # SECURITY FIX: Use parameterized query with validated trunc value
+    # The trunc value is validated against whitelist above
     query = f"""
         SELECT
             DATE_TRUNC('{trunc}', transaction_date) as period,
@@ -286,26 +294,46 @@ async def get_budget_status(db, period: str = 'current_month'):
     Returns:
         Budget status with actual vs budgeted amounts
     """
-    # Determine date range based on period
-    period_map = {
-        'current_month': ("DATE_TRUNC('month', CURRENT_DATE)", "DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'"),
-        'current_quarter': ("DATE_TRUNC('quarter', CURRENT_DATE)", "DATE_TRUNC('quarter', CURRENT_DATE) + INTERVAL '3 months'"),
-        'current_year': ("DATE_TRUNC('year', CURRENT_DATE)", "DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '1 year'")
-    }
-
-    if period not in period_map:
+    # SECURITY FIX: Calculate dates in Python instead of SQL string interpolation
+    # Validate period against whitelist
+    allowed_periods = ['current_month', 'current_quarter', 'current_year']
+    if period not in allowed_periods:
         period = 'current_month'
 
-    start_expr, end_expr = period_map[period]
+    # Calculate date range based on period using Python datetime
+    now = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-    query = f"""
+    if period == 'current_month':
+        start_date = now.replace(day=1)
+        # Get last day of month and add 1 day to get first day of next month
+        last_day = calendar.monthrange(now.year, now.month)[1]
+        if now.month == 12:
+            end_date = now.replace(year=now.year + 1, month=1, day=1)
+        else:
+            end_date = now.replace(month=now.month + 1, day=1)
+    elif period == 'current_quarter':
+        quarter = (now.month - 1) // 3
+        start_month = quarter * 3 + 1
+        start_date = now.replace(month=start_month, day=1)
+        # End is 3 months later
+        end_month = start_month + 3
+        if end_month > 12:
+            end_date = now.replace(year=now.year + 1, month=end_month - 12, day=1)
+        else:
+            end_date = now.replace(month=end_month, day=1)
+    else:  # current_year
+        start_date = now.replace(month=1, day=1)
+        end_date = now.replace(year=now.year + 1, month=1, day=1)
+
+    # Use parameterized query to prevent SQL injection
+    query = """
         WITH period_spending AS (
             SELECT
                 category_id,
                 SUM(CASE WHEN transaction_type = 'debit' THEN amount ELSE 0 END) as actual_spent
             FROM transactions
-            WHERE transaction_date >= {start_expr}
-              AND transaction_date < {end_expr}
+            WHERE transaction_date >= $1
+              AND transaction_date < $2
             GROUP BY category_id
         )
         SELECT
@@ -330,7 +358,7 @@ async def get_budget_status(db, period: str = 'current_month'):
         ORDER BY percent_used DESC
     """
 
-    results = await db.execute_query(query)
+    results = await db.execute_query(query, start_date, end_date)
 
     budgets = []
     total_budgeted = 0

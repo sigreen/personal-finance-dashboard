@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 import shutil
+import os
+import re
 from pathlib import Path
 
 from ..database import get_db, Account, Transaction, ImportLog, ImportStatus, Category
@@ -23,6 +25,62 @@ from ..transformers.transaction_transformer import TransactionTransformer
 from ..loaders.database_loader import DatabaseLoader
 
 router = APIRouter()
+
+
+def sanitize_and_find_upload_file(upload_dir: Path, filename: str) -> Path:
+    """
+    Sanitize filename and find uploaded file safely.
+
+    SECURITY: Prevents path traversal attacks by:
+    1. Extracting only the filename component (no directory paths)
+    2. Validating allowed characters
+    3. Escaping glob special characters
+    4. Verifying final path is within upload directory
+
+    Args:
+        upload_dir: Upload directory path
+        filename: User-provided filename to sanitize
+
+    Returns:
+        Resolved path to the uploaded file
+
+    Raises:
+        HTTPException: If filename is invalid or file not found
+    """
+    # Extract only the filename component, removing any directory paths
+    safe_filename = os.path.basename(filename)
+
+    # Validate filename contains only safe characters
+    # Allow alphanumeric, dash, underscore, dot, and space
+    if not re.match(r'^[a-zA-Z0-9._\- ]+$', safe_filename):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid filename: contains disallowed characters"
+        )
+
+    # Escape glob special characters to prevent glob injection
+    safe_filename = safe_filename.replace('*', '\\*').replace('?', '\\?').replace('[', '\\[')
+
+    # Find uploaded file (files are prefixed with UUID)
+    upload_dir_resolved = upload_dir.resolve()  # Resolve to absolute path
+    file_pattern = f"*_{safe_filename}"
+    matching_files = list(upload_dir_resolved.glob(file_pattern))
+
+    if not matching_files:
+        raise HTTPException(status_code=404, detail="Uploaded file not found")
+
+    file_path = matching_files[0].resolve()  # Resolve to absolute path
+
+    # CRITICAL SECURITY CHECK: Validate that resolved path is within upload_dir
+    try:
+        file_path.relative_to(upload_dir_resolved)
+    except ValueError:
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied: path traversal attempt detected"
+        )
+
+    return file_path
 
 
 @router.get("/health")
@@ -149,15 +207,9 @@ async def preview_csv(
     if not import_log:
         raise HTTPException(status_code=404, detail="Import not found")
 
-    # Find uploaded file
+    # Find uploaded file (with path traversal protection)
     upload_dir = Path(settings.upload_dir)
-    file_pattern = f"*_{import_log.filename}"
-    matching_files = list(upload_dir.glob(file_pattern))
-
-    if not matching_files:
-        raise HTTPException(status_code=404, detail="Uploaded file not found")
-
-    file_path = matching_files[0]
+    file_path = sanitize_and_find_upload_file(upload_dir, import_log.filename)
 
     # Parse and preview
     try:
@@ -190,15 +242,9 @@ async def process_import(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    # Find uploaded file
+    # Find uploaded file (with path traversal protection)
     upload_dir = Path(settings.upload_dir)
-    file_pattern = f"*_{import_log.filename}"
-    matching_files = list(upload_dir.glob(file_pattern))
-
-    if not matching_files:
-        raise HTTPException(status_code=404, detail="Uploaded file not found")
-
-    file_path = matching_files[0]
+    file_path = sanitize_and_find_upload_file(upload_dir, import_log.filename)
 
     # Update import log
     loader = DatabaseLoader(db)

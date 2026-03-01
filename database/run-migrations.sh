@@ -6,9 +6,24 @@ echo "Database Migration Script"
 echo "======================================"
 echo ""
 
+# SECURITY FIX: Use .pgpass file instead of PGPASSWORD environment variable
+# to avoid exposing password in process list
+PGPASSFILE=$(mktemp)
+chmod 600 "$PGPASSFILE"
+echo "$DB_HOST:5432:$POSTGRES_DB:$POSTGRES_USER:$POSTGRES_PASSWORD" > "$PGPASSFILE"
+export PGPASSFILE
+
+# Cleanup function to remove .pgpass file on exit
+cleanup() {
+  if [ -f "$PGPASSFILE" ]; then
+    rm -f "$PGPASSFILE"
+  fi
+}
+trap cleanup EXIT
+
 # Wait for PostgreSQL to be ready
 echo "Waiting for PostgreSQL to be ready..."
-until PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\q' 2>/dev/null; do
+until psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\q' 2>/dev/null; do
   echo "PostgreSQL is unavailable - sleeping"
   sleep 2
 done
@@ -18,7 +33,7 @@ echo ""
 
 # Check if migrations table exists
 echo "Checking for migrations table..."
-PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<-EOSQL
+psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<-EOSQL
   CREATE TABLE IF NOT EXISTS schema_migrations (
     version VARCHAR(255) PRIMARY KEY,
     applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -39,14 +54,14 @@ for migration in /migrations/V*.sql; do
     description=$(echo "$filename" | sed 's/^V[0-9]*__//; s/.sql$//' | tr '_' ' ')
 
     # Check if migration has already been applied
-    already_applied=$(PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT COUNT(*) FROM schema_migrations WHERE version='$version';")
+    already_applied=$(psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT COUNT(*) FROM schema_migrations WHERE version='$version';")
 
     if [ "$already_applied" -eq 0 ]; then
       echo "Applying migration: $filename"
-      PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$migration"
+      psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$migration"
 
       # Record migration
-      PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<-EOSQL
+      psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<-EOSQL
         INSERT INTO schema_migrations (version, description) VALUES ('$version', '$description');
 EOSQL
       echo "✓ Migration $version applied successfully"
@@ -69,10 +84,10 @@ for seed in /seeds/*.sql; do
     echo "Applying seed data: $filename"
 
     # Check if seed has already been applied (based on category count as a heuristic)
-    category_count=$(PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT COUNT(*) FROM categories;")
+    category_count=$(psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "SELECT COUNT(*) FROM categories;")
 
     if [ "$category_count" -eq 0 ]; then
-      PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$seed"
+      psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f "$seed"
       echo "✓ Seed data applied successfully"
     else
       echo "⊘ Seed data already exists, skipping"
@@ -88,11 +103,11 @@ echo ""
 
 # Show applied migrations
 echo "Applied migrations:"
-PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, description, applied_at FROM schema_migrations ORDER BY version;"
+psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT version, description, applied_at FROM schema_migrations ORDER BY version;"
 
 echo ""
 echo "Database schema:"
-PGPASSWORD=$POSTGRES_PASSWORD psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\dt"
+psql -h "$DB_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\dt"
 
 echo ""
 echo "✓ All migrations completed successfully!"
