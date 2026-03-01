@@ -3,16 +3,24 @@ FROM docker.io/library/postgres:15-alpine
 # Install postgresql-client tools
 RUN apk add --no-cache postgresql-client bash
 
+# SECURITY: Create non-root user for running migrations
+RUN addgroup -g 1000 migrator && \
+    adduser -D -u 1000 -G migrator migrator
+
 # Create directory for migrations
-RUN mkdir -p /migrations /seeds
+RUN mkdir -p /migrations /seeds && \
+    chown -R migrator:migrator /migrations /seeds
 
 # Copy migration and seed files
-COPY migrations/*.sql /migrations/
-COPY seeds/*.sql /seeds/
+COPY --chown=migrator:migrator migrations/*.sql /migrations/
+COPY --chown=migrator:migrator seeds/*.sql /seeds/
 
 # Copy migration script
-COPY run-migrations.sh /usr/local/bin/run-migrations.sh
+COPY --chown=migrator:migrator run-migrations.sh /usr/local/bin/run-migrations.sh
 RUN chmod +x /usr/local/bin/run-migrations.sh
+
+# Switch to non-root user
+USER migrator
 
 # Set working directory
 WORKDIR /migrations

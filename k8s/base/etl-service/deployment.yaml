@@ -12,10 +12,27 @@ spec:
       labels:
         app: etl-service
     spec:
+      # SECURITY: Pod-level security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: etl-service
         image: localhost/finance-etl:latest
         imagePullPolicy: Always
+        # SECURITY: Container-level security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false  # Need writable /tmp/uploads
         ports:
         - containerPort: 8080
           name: http

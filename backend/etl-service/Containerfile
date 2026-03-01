@@ -9,6 +9,10 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
+# SECURITY: Create non-root user
+RUN groupadd -g 1000 appuser && \
+    useradd -r -u 1000 -g appuser appuser
+
 # Copy requirements
 COPY requirements.txt .
 
@@ -16,10 +20,14 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY src/ ./src/
+COPY --chown=appuser:appuser src/ ./src/
 
-# Create upload directory
-RUN mkdir -p /tmp/uploads
+# Create upload directory with proper ownership
+RUN mkdir -p /tmp/uploads && \
+    chown -R appuser:appuser /tmp/uploads /app
+
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 8080

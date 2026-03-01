@@ -1,0 +1,83 @@
+---
+# Network Policy for ETL Service
+# Restricts inbound connections to only authorized clients
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: etl-service-network-policy
+  namespace: personal-finance
+spec:
+  podSelector:
+    matchLabels:
+      app: etl-service
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow connections from frontend
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frontend
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow connections from Istio/Envoy sidecars (if using service mesh)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow connections from Kagenti gateway for API access
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kagenti-system
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow health checks from kube-system
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow DNS queries
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow connections to PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow connections to Keycloak for auth validation
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: keycloak
+      podSelector:
+        matchLabels:
+          app: keycloak
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow HTTPS outbound (for external services if needed)
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443

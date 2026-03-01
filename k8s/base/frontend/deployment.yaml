@@ -14,12 +14,29 @@ spec:
       labels:
         app: frontend
     spec:
+      # SECURITY: Pod-level security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101  # nginx user in alpine
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: frontend
         image: localhost/finance-frontend:latest
         imagePullPolicy: Always
+        # SECURITY: Container-level security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 101  # nginx user
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false  # nginx needs to write temp files
         ports:
-        - containerPort: 80
+        - containerPort: 8080  # Changed from 80 (non-privileged port)
           name: http
         resources:
           requests:
@@ -31,7 +48,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /
-            port: 80
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
@@ -39,7 +56,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /
-            port: 80
+            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
