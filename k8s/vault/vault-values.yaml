@@ -1,0 +1,44 @@
+server:
+  # Run in dev mode for easier setup (for production, use HA mode)
+  dev:
+    enabled: true
+    # Dev mode runs in memory - for production, use persistent storage
+
+  # Enable the Vault UI
+  ui:
+    enabled: true
+    serviceType: "ClusterIP"
+
+  # Resource limits
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+  # Data storage - using file backend for dev
+  dataStorage:
+    enabled: true
+    size: 1Gi
+    storageClass: local-path
+
+  # HA configuration (disabled for dev)
+  ha:
+    enabled: false
+
+# Injector for automatic secret injection into pods
+injector:
+  enabled: true
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 250m
+
+# UI configuration
+ui:
+  enabled: true
