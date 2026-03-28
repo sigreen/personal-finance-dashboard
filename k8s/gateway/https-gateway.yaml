@@ -1,0 +1,36 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: https-gateway
+  namespace: personal-finance
+  annotations:
+    # Ensure the gateway deployment uses hostPort for direct host binding
+    # This allows access via https://finance.localtest.me:8443 without port-forwarding
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    hostname: "*.localtest.me"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            shared-gateway-access: "true"
+  - name: https
+    hostname: "*.localtest.me"
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: finance-tls
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            shared-gateway-access: "true"

@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-configure-client
+  namespace: keycloak
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: configure
+        image: quay.io/keycloak/keycloak:26.3.3
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          echo "Configuring Keycloak client..."
+          # Give Keycloak a moment to be ready
+          sleep 10
+
+          # Authenticate
+          /opt/keycloak/bin/kcadm.sh config credentials \
+            --server http://keycloak-service:8080 \
+            --realm master \
+            --user admin \
+            --password admin
+
+          # Check if client exists
+          CLIENT_ID=$(/opt/keycloak/bin/kcadm.sh get clients \
+            --realm master \
+            --fields id,clientId \
+            --format csv --noquotes 2>/dev/null | grep "finance-etl" | cut -d',' -f1 || echo "")
+
+          if [ -n "$CLIENT_ID" ]; then
+            echo "Client finance-etl already exists (ID: $CLIENT_ID), updating..."
+            /opt/keycloak/bin/kcadm.sh update clients/$CLIENT_ID \
+              --realm master \
+              -s enabled=true \
+              -s clientAuthenticatorType=client-secret \
+              -s publicClient=true \
+              -s standardFlowEnabled=true \
+              -s directAccessGrantsEnabled=true \
+              -s 'redirectUris=["https://finance.localtest.me:8443/*"]' \
+              -s 'webOrigins=["https://finance.localtest.me:8443"]'
+          else
+            echo "Creating client finance-etl..."
+            /opt/keycloak/bin/kcadm.sh create clients \
+              --realm master \
+              -s clientId=finance-etl \
+              -s enabled=true \
+              -s clientAuthenticatorType=client-secret \
+              -s publicClient=true \
+              -s standardFlowEnabled=true \
+              -s directAccessGrantsEnabled=true \
+              -s 'redirectUris=["https://finance.localtest.me:8443/*"]' \
+              -s 'webOrigins=["https://finance.localtest.me:8443"]'
+          fi
+
+          echo "Client configuration complete!"

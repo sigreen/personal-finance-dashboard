@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: https-gateway-istio
+  namespace: personal-finance
+spec:
+  template:
+    spec:
+      containers:
+      - name: istio-proxy
+        ports:
+        - containerPort: 443
+          hostPort: 8443
+          name: https
+          protocol: TCP
+        - containerPort: 15021
+          name: status-port
+          protocol: TCP
